@@ -1,7 +1,8 @@
 import { useState } from "react";
 import Login from "@/pages/Login";
 import { AdminDashboard } from "@/components/dashboard/AdminDashboard";
-import { TechnicianDashboard } from "@/components/technician/TechnicianDashboard";
+import TechnicianDashboard from "@/components/technician/TechnicianDashboard";
+
 
 const Index = () => {
   const [userRole, setUserRole] = useState<"admin" | "technician" | null>(null);
