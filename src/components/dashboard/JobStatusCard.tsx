@@ -6,12 +6,12 @@ import { cn } from "@/lib/utils";
 
 interface JobStatusCardProps {
   label: string;
-  statusKey: "PENDING" | "IN_PROGRESS" | "DONE"; // match backend
+  statusKey: "PENDING" | "IN_PROGRESS" | "DONE" | "NOT_DONE" | "ESCALATED"; // backend schema
   color: "default" | "warning" | "success" | "danger" | "secondary";
   trend: string;
 }
 
-const colorClasses = {
+const colorClasses: Record<JobStatusCardProps["color"], string> = {
   default: "border-l-primary bg-primary/5",
   warning: "border-l-warning bg-warning/5",
   success: "border-l-success bg-success/5",
@@ -19,13 +19,13 @@ const colorClasses = {
   secondary: "border-l-muted-foreground bg-muted/5",
 };
 
-const badgeVariants = {
+const badgeVariants: Record<JobStatusCardProps["color"], string> = {
   default: "default",
   warning: "warning",
   success: "success",
   danger: "danger",
   secondary: "secondary",
-} as const;
+};
 
 export function JobStatusCard({ label, statusKey, color, trend }: JobStatusCardProps) {
   const [count, setCount] = useState<number>(0);

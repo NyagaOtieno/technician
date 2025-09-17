@@ -1,7 +1,8 @@
 import { useState } from "react";
 import Login from "@/pages/Login";
-import { AdminDashboard } from "@/components/dashboard/AdminDashboard";
+import AdminDashboard from "@/components/dashboard/AdminDashboard";   // ✅ no curly braces
 import TechnicianDashboard from "@/components/technician/TechnicianDashboard";
+
 
 
 const Index = () => {
