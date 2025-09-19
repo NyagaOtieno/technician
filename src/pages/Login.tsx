@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { MapPin, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import axios from "axios";
+import logo from "@/assets/logo.png";
 
 interface LocationData {
   latitude: number;
@@ -195,7 +196,7 @@ const Login = ({ onLogin }: LoginProps) => {
         <Card className="shadow-lg border">
           <CardHeader className="text-center">
             <img
-              src="/src/assets/jendie-logo.png"
+              src={logo} // fixed logo import
               alt="JENDIE Tech"
               className="h-16 mx-auto mb-4"
             />

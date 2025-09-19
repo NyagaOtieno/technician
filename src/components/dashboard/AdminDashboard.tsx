@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState } from "react"; 
 import { Plus, Filter, Download, Search, Calendar, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { JobTable } from "./JobTable";
 import { CreateJobDialog } from "./CreateJobDialog";
 import { TechnicianManagement } from "@/components/admin/TechnicianManagement";
 import { ProfileHeader } from "@/components/layout/ProfileHeader";
+import logo from "@/assets/logo.png";
 
 const statusMetrics = [
   { label: "Pending", statusKey: "PENDING", color: "default", trend: "+2 from yesterday" },
@@ -154,4 +155,5 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
     </div>
   );
 }
+
 export default AdminDashboard;
