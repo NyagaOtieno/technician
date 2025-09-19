@@ -224,7 +224,7 @@ export default function TechnicianDashboard({ onLogout }: { onLogout: () => void
 
   return (
     <div className="min-h-screen bg-background">
-      {ProfileHeader && <ProfileHeader userRole="technician" onLogout={onLogout} />}
+      <ProfileHeader userRole="technician" onLogout={onLogout} />
 
       <div className="p-6 space-y-6">
         {/* Header & Session */}
@@ -340,7 +340,7 @@ export default function TechnicianDashboard({ onLogout }: { onLogout: () => void
         </Tabs>
 
         {/* Job Dialog */}
-        {selectedJob && JobExecutionDialog && (
+        {selectedJob && (
           <JobExecutionDialog
             job={selectedJob}
             open={!!selectedJob}
