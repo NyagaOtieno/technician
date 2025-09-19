@@ -28,7 +28,9 @@ const RollCall = lazy(() => import("@/pages/rollcall/RollCall"));
 const AdminDashboard = lazy(
   () => import("@/components/dashboard/AdminDashboard")
 );
-
+const TechnicianDashboard = lazy(
+  () => import("@/components/technician/TechnicianDashboard")
+);
 
 const queryClient = new QueryClient();
 
