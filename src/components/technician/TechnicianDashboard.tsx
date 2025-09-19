@@ -25,7 +25,7 @@ const priorityColors = {
   low: "success",
 } as const;
 
-export default function TechnicianDashboard({ onLogout }: { onLogout: () => void }) {
+function TechnicianDashboard({ onLogout }: { onLogout: () => void }) {
   const { toast } = useToast();
 
   const [jobs, setJobs] = useState<any[]>([]);
@@ -351,3 +351,4 @@ export default function TechnicianDashboard({ onLogout }: { onLogout: () => void
     </div>
   );
 }
+export default TechnicianDashboard;
