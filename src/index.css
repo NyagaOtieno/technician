@@ -2,8 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
-/* JENDIE Job Management System Design System */
+/* Ensure Leaflet maps render properly */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  z-index: 0; /* avoid overlay conflicts */
+}
 
+/* Map preview (for small cards, like technician rows) */
+.map-preview {
+  width: 150px;
+  height: 100px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+
+/* JENDIE Job Management System Design System */
 @layer base {
   :root {
     /* Primary Brand Colors - Deep Professional Blue */
@@ -64,19 +81,12 @@
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
@@ -84,50 +94,36 @@
     /* Dark Mode - Professional Dark Blue Theme */
     --background: 210 40% 8%;
     --foreground: 0 0% 95%;
-
     --card: 210 40% 10%;
     --card-foreground: 0 0% 95%;
-
     --popover: 210 40% 10%;
     --popover-foreground: 0 0% 95%;
-
     --primary: 210 85% 45%;
     --primary-foreground: 0 0% 100%;
     --primary-glow: 210 85% 55%;
-
     --secondary: 210 40% 15%;
     --secondary-foreground: 0 0% 95%;
-
     --orange: 25 95% 60%;
     --orange-foreground: 0 0% 100%;
     --orange-light: 25 95% 70%;
-
     --success: 142 76% 45%;
     --success-foreground: 0 0% 100%;
     --warning: 45 93% 55%;
     --warning-foreground: 210 40% 12%;
     --danger: 0 84% 65%;
     --danger-foreground: 0 0% 100%;
-
     --muted: 210 40% 15%;
     --muted-foreground: 215 20% 65%;
-
     --accent: 210 40% 15%;
     --accent-foreground: 0 0% 95%;
-
     --destructive: 0 84% 65%;
     --destructive-foreground: 0 0% 100%;
-
     --border: 210 40% 18%;
     --input: 210 40% 18%;
     --ring: 210 85% 45%;
-
-    /* Dark Mode Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
     --gradient-hero: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--orange)) 100%);
     --gradient-card: linear-gradient(135deg, hsl(210 40% 10%) 0%, hsl(210 40% 12%) 100%);
-
-    /* Dark Mode Shadows */
     --shadow-card: 0 4px 6px -1px hsl(0 0% 0% / 0.3), 0 2px 4px -1px hsl(0 0% 0% / 0.2);
     --shadow-elevated: 0 10px 15px -3px hsl(0 0% 0% / 0.3), 0 4px 6px -2px hsl(0 0% 0% / 0.2);
     --shadow-glow: 0 0 20px hsl(var(--orange) / 0.4);
@@ -156,16 +152,13 @@
   ::-webkit-scrollbar {
     width: 6px;
   }
-
   ::-webkit-scrollbar-track {
     background: hsl(var(--muted));
   }
-
   ::-webkit-scrollbar-thumb {
     background: hsl(var(--border));
     border-radius: 3px;
   }
-
   ::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--muted-foreground));
   }
@@ -175,40 +168,31 @@
   .gradient-primary {
     background: var(--gradient-primary);
   }
-
   .gradient-hero {
     background: var(--gradient-hero);
   }
-
   .gradient-card {
     background: var(--gradient-card);
   }
-
   .shadow-card {
     box-shadow: var(--shadow-card);
   }
-
   .shadow-elevated {
     box-shadow: var(--shadow-elevated);
   }
-
   .shadow-glow {
     box-shadow: var(--shadow-glow);
   }
-
   .animate-fadeIn {
     animation: fadeIn 0.5s ease-in-out;
   }
-
   .animate-slideUp {
     animation: slideUp 0.3s ease-out;
   }
-
   @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
   }
-
   @keyframes slideUp {
     from { 
       opacity: 0; 

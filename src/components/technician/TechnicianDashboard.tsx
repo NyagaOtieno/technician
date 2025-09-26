@@ -8,7 +8,8 @@ import { Clock, AlertTriangle, CheckCircle2, XCircle, MapPin, User, Phone } from
 import { useToast } from "@/hooks/use-toast";
 import { JobExecutionDialog } from "./JobExecutionDialog";
 import { ProfileHeader } from "@/components/layout/ProfileHeader";
-import logo from "@/assets/logo.png";
+import logo from "../../assets/logo.png";
+
 
 const API_BASE = "https://jendietech-production.up.railway.app/api";
 

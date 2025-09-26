@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { User, Phone, Mail, MapPin, Wrench } from "lucide-react";
-import axios from "axios";
+import { User } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -38,13 +37,10 @@ const kenyanCounties = [
   "Kakamega",
 ];
 
-const specializations = [
-  { value: "installation", label: "Installation" },
-  { value: "fault-check", label: "Fault Check" },
-  { value: "renewal", label: "Renewal" },
-  { value: "maintenance", label: "Maintenance" },
+const roles = [
   { value: "TECHNICIAN", label: "TECHNICIAN" },
-  { value: "all", label: "All Services" },
+  { value: "STAFF", label: "STAFF" },
+  { value: "ADMIN", label: "ADMIN" },
 ];
 
 export function CreateTechnicianDialog({
@@ -55,70 +51,125 @@ export function CreateTechnicianDialog({
     name: "",
     email: "",
     phone: "",
-    location: "",
-    specialization: "",
-    nationalId: "",
+    region: "",
+    role: "",
     password: "",
   });
-
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Get admin token for registration
+  const getAdminToken = async (): Promise<string | null> => {
+    try {
+      const res = await fetch(
+        "https://jendietech-production.up.railway.app/api/auth/login",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: "admin@jendie.com",
+            password: "admin123",
+          }),
+        }
+      );
+      const data = await res.json();
+      if (res.ok) return data.token;
+      toast.error("Admin login failed", { description: data.message });
+      return null;
+    } catch (err) {
+      console.error(err);
+      toast.error("Admin login error");
+      return null;
+    }
+  };
+
+  // --- Phone Normalizer ---
+  const normalizePhone = (raw: string): string | null => {
+    let phone = raw.trim();
+
+    // Allow either 07XXXXXXXX or +2547XXXXXXXX
+    const localRegex = /^07\d{8}$/;
+    const intlRegex = /^\+2547\d{8}$/;
+
+    if (localRegex.test(phone)) {
+      return "+254" + phone.substring(1); // convert 07... to +2547...
+    }
+
+    if (intlRegex.test(phone)) {
+      return phone; // already in correct format
+    }
+
+    return null; // invalid
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
-      const token = localStorage.getItem("token"); // 👈 JWT from login
-      if (!token) {
-        toast.error("Not authorized", {
-          description: "Please login again.",
-        });
+      const { name, email, phone, password, role, region } = formData;
+
+      // Required fields
+      if (!name || !email || !phone || !password || !role || !region) {
+        toast.error("All fields are required");
+        setIsSubmitting(false);
         return;
       }
 
+      const normalizedPhone = normalizePhone(phone);
+      if (!normalizedPhone) {
+        toast.error(
+          "Phone number must be 07XXXXXXXX or +2547XXXXXXXX format"
+        );
+        setIsSubmitting(false);
+        return;
+      }
+
+      const token = await getAdminToken();
+      if (!token) throw new Error("Cannot get admin token");
+
       const payload = {
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        location: formData.location,
-        specialization: formData.specialization,
-        nationalId: formData.nationalId,
-        password: formData.password,
-        role: "TECHNICIAN", // 👈 enforce technician role
+        name: name.trim(),
+        email: email.trim(),
+        phone: normalizedPhone, // always +2547XXXXXXXX
+        password: password.trim(),
+        role,
+        region,
       };
 
-      const res = await axios.post(
-        "https://jendietech-production.up.railway.app/api/users",
-        payload,
+      const response = await fetch(
+        "https://jendietech-production.up.railway.app/api/auth/register",
         {
+          method: "POST",
           headers: {
+            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
+          body: JSON.stringify(payload),
         }
       );
 
-      toast.success("Technician created successfully!", {
-        description: `${res.data.name} has been added and notified via SMS.`,
-      });
+      const data = await response.json();
 
-      onOpenChange(false);
+      if (!response.ok)
+        throw new Error(data.message || "Failed to create user");
+
+      toast.success("User created successfully!", {
+        description: `${data.user.name} added.`,
+      });
 
       // Reset form
       setFormData({
         name: "",
         email: "",
         phone: "",
-        location: "",
-        specialization: "",
-        nationalId: "",
+        region: "",
+        role: "",
         password: "",
       });
+      onOpenChange(false);
     } catch (error: any) {
-      console.error("Create technician error:", error);
-      toast.error("Failed to create technician", {
-        description:
-          error.response?.data?.message || "Please try again later.",
-      });
+      console.error("Error creating user:", error);
+      toast.error("Failed to create user", { description: error.message });
     } finally {
       setIsSubmitting(false);
     }
@@ -129,26 +180,23 @@ export function CreateTechnicianDialog({
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <User className="h-5 w-5 text-primary" />
-            Add New Technician
+            <User className="h-5 w-5 text-primary" /> Add New User
           </DialogTitle>
           <DialogDescription>
-            Create a new technician profile. They will receive login details via
-            SMS.
+            Create a new user profile. Share Email and Password with them.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Personal Information */}
+          {/* Personal Info */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Personal Information</h3>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="name">Full Name</Label>
                 <Input
                   id="name"
-                  placeholder="e.g., James Mwangi"
+                  placeholder="James Mwangi"
                   value={formData.name}
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
@@ -156,25 +204,11 @@ export function CreateTechnicianDialog({
                   required
                 />
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="nationalId">National ID</Label>
-                <Input
-                  id="nationalId"
-                  placeholder="e.g., 12345678"
-                  value={formData.nationalId}
-                  onChange={(e) =>
-                    setFormData({ ...formData, nationalId: e.target.value })
-                  }
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password">PASSWORD</Label>
+              <div>
+                <Label htmlFor="password">Password</Label>
                 <Input
                   id="password"
-                  placeholder="e.g., 3456TECH"
+                  placeholder="3456TECH"
                   value={formData.password}
                   onChange={(e) =>
                     setFormData({ ...formData, password: e.target.value })
@@ -185,118 +219,89 @@ export function CreateTechnicianDialog({
             </div>
           </div>
 
-          {/* Contact Information */}
+          {/* Contact Info */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Contact Information</h3>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="james.mwangi@jendie.co.ke"
-                    value={formData.email}
-                    onChange={(e) =>
-                      setFormData({ ...formData, email: e.target.value })
-                    }
-                    className="pl-10"
-                    required
-                  />
-                </div>
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="james.mwangi@jendie.co.ke"
+                  value={formData.email}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
+                  required
+                />
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="phone"
-                    placeholder="+254 7XX XXX XXX"
-                    value={formData.phone}
-                    onChange={(e) =>
-                      setFormData({ ...formData, phone: e.target.value })
-                    }
-                    className="pl-10"
-                    required
-                  />
-                </div>
+              <div>
+                <Label htmlFor="phone">Phone</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="+254700000000 or 07XXXXXXXX"
+                  value={formData.phone}
+                  onChange={(e) =>
+                    setFormData({ ...formData, phone: e.target.value })
+                  }
+                  required
+                />
               </div>
             </div>
           </div>
 
-          {/* Work Information */}
+          {/* Work Info */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Work Information</h3>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="location">Primary Location</Label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Select
-                    value={formData.location}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, location: value })
-                    }
-                    required
-                  >
-                    <SelectTrigger className="pl-10">
-                      <SelectValue placeholder="Select county" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {kenyanCounties.map((county) => (
-                        <SelectItem
-                          key={county}
-                          value={county.toLowerCase()}
-                        >
-                          {county}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div>
+                <Label htmlFor="region">Primary Location</Label>
+                <Select
+                  value={formData.region}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, region: value })
+                  }
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select county" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {kenyanCounties.map((county) => (
+                      <SelectItem key={county} value={county}>
+                        {county}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="specialization">Specialization</Label>
-                <div className="relative">
-                  <Wrench className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Select
-                    value={formData.specialization}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, specialization: value })
-                    }
-                    required
-                  >
-                    <SelectTrigger className="pl-10">
-                      <SelectValue placeholder="Select specialization" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {specializations.map((spec) => (
-                        <SelectItem key={spec.value} value={spec.value}>
-                          {spec.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div>
+                <Label htmlFor="role">Role</Label>
+                <Select
+                  value={formData.role}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, role: value })
+                  }
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roles.map((r) => (
+                      <SelectItem key={r.value} value={r.value}>
+                        {r.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>
 
-          {/* Notification Info */}
-          <div className="p-4 bg-muted/50 rounded-lg border-l-4 border-l-orange">
-            <p className="text-sm font-medium text-orange">SMS Notification</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              The technician will receive login credentials and app download
-              link via SMS
-            </p>
-          </div>
-
-          {/* Action Buttons */}
+          {/* Actions */}
           <div className="flex justify-end gap-2 pt-4">
             <Button
               type="button"
@@ -307,7 +312,7 @@ export function CreateTechnicianDialog({
               Cancel
             </Button>
             <Button type="submit" variant="orange" disabled={isSubmitting}>
-              {isSubmitting ? "Creating..." : "Create Technician & Send SMS"}
+              {isSubmitting ? "Creating..." : "Create User"}
             </Button>
           </div>
         </form>

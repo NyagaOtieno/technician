@@ -11,7 +11,7 @@ import { JobTable } from "./JobTable";
 import { CreateJobDialog } from "./CreateJobDialog";
 import { TechnicianManagement } from "@/components/admin/TechnicianManagement";
 import { ProfileHeader } from "@/components/layout/ProfileHeader";
-import logo from "@/assets/logo.png";
+import logo from "../../assets/logo.png";
 
 const statusMetrics = [
   { label: "Pending", statusKey: "PENDING", color: "default", trend: "+2 from yesterday" },

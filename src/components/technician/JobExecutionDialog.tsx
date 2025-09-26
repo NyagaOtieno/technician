@@ -1,5 +1,15 @@
 import { useState } from "react";
-import { MapPin, Camera, FileText, CheckCircle, XCircle, AlertTriangle, Clock, User, Phone } from "lucide-react";
+import {
+  MapPin,
+  Camera,
+  FileText,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  Clock,
+  User,
+  Phone,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -42,12 +52,16 @@ const notDoneReasons = [
   { value: "other", label: "Other" },
 ];
 
-export function JobExecutionDialog({ job, open, onOpenChange }: JobExecutionDialogProps) {
+export function JobExecutionDialog({
+  job,
+  open,
+  onOpenChange,
+}: JobExecutionDialogProps) {
   const [jobStatus, setJobStatus] = useState(job.status);
   const [formData, setFormData] = useState({
     governorSerial: "",
     governorStatus: "",
-    gpsLocation: "Auto-captured: -1.2921, 36.8219", // Nairobi coordinates
+    gpsLocation: "Auto-captured: -1.2921, 36.8219", // Default coordinates (Nairobi)
     clientName: job.client,
     clientPhone: job.clientPhone,
     remarks: "",
@@ -65,25 +79,46 @@ export function JobExecutionDialog({ job, open, onOpenChange }: JobExecutionDial
 
   const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
+    console.log("Uploaded photos:", files); // Debugging line
     setFormData({ ...formData, photos: [...formData.photos, ...files] });
   };
 
   const handleSubmit = () => {
+    // Basic validation before submitting
+    if (!formData.governorSerial || !formData.governorStatus) {
+      console.error("Please fill in all required fields.");
+      return;
+    }
+
     // In real app, this would save to backend and update job status
     console.log("Submitting job:", { ...formData, status: jobStatus });
+
+    // Close dialog
     onOpenChange(false);
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "pending": return "default";
-      case "in-progress": return "warning";
-      case "completed": return "success";
-      case "escalated": return "danger";
-      case "not-done": return "secondary";
-      default: return "default";
+      case "pending":
+        return "default";
+      case "in-progress":
+        return "warning";
+      case "completed":
+        return "success";
+      case "escalated":
+        return "danger";
+      case "not-done":
+        return "secondary";
+      default:
+        return "default";
     }
   };
+
+  // Ensure job is valid before rendering
+  if (!job) {
+    console.error("Job data is missing");
+    return null; // Don't render if no job data is passed
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -107,7 +142,9 @@ export function JobExecutionDialog({ job, open, onOpenChange }: JobExecutionDial
               </CardHeader>
               <CardContent className="space-y-3">
                 <div>
-                  <Label className="text-xs text-muted-foreground">Vehicle Registration</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Vehicle Registration
+                  </Label>
                   <p className="font-mono font-medium">{job.vehicleReg}</p>
                 </div>
                 <div>
@@ -148,32 +185,32 @@ export function JobExecutionDialog({ job, open, onOpenChange }: JobExecutionDial
                 <CardTitle className="text-lg">Update Status</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button 
-                  variant={jobStatus === "in-progress" ? "warning" : "outline"} 
+                <Button
+                  variant={jobStatus === "in-progress" ? "warning" : "outline"}
                   className="w-full"
                   onClick={() => handleStatusChange("in-progress")}
                 >
                   <AlertTriangle className="h-4 w-4 mr-2" />
                   Start Job
                 </Button>
-                <Button 
-                  variant={jobStatus === "completed" ? "success" : "outline"} 
+                <Button
+                  variant={jobStatus === "completed" ? "success" : "outline"}
                   className="w-full"
                   onClick={() => handleStatusChange("completed")}
                 >
                   <CheckCircle className="h-4 w-4 mr-2" />
                   Mark Complete
                 </Button>
-                <Button 
-                  variant={jobStatus === "escalated" ? "danger" : "outline"} 
+                <Button
+                  variant={jobStatus === "escalated" ? "danger" : "outline"}
                   className="w-full"
                   onClick={() => handleStatusChange("escalated")}
                 >
                   <AlertTriangle className="h-4 w-4 mr-2" />
                   Escalate
                 </Button>
-                <Button 
-                  variant={jobStatus === "not-done" ? "secondary" : "outline"} 
+                <Button
+                  variant={jobStatus === "not-done" ? "secondary" : "outline"}
                   className="w-full"
                   onClick={() => handleStatusChange("not-done")}
                 >
@@ -199,14 +236,18 @@ export function JobExecutionDialog({ job, open, onOpenChange }: JobExecutionDial
                       id="governorSerial"
                       placeholder="Enter serial number"
                       value={formData.governorSerial}
-                      onChange={(e) => setFormData({ ...formData, governorSerial: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, governorSerial: e.target.value })
+                      }
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="governorStatus">Governor Status</Label>
                     <Select
                       value={formData.governorStatus}
-                      onValueChange={(value) => setFormData({ ...formData, governorStatus: value })}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, governorStatus: value })
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select status" />
@@ -228,7 +269,9 @@ export function JobExecutionDialog({ job, open, onOpenChange }: JobExecutionDial
                     <Input
                       id="gpsLocation"
                       value={formData.gpsLocation}
-                      onChange={(e) => setFormData({ ...formData, gpsLocation: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, gpsLocation: e.target.value })
+                      }
                       className="flex-1"
                     />
                     <Button variant="outline" size="sm">
@@ -244,7 +287,9 @@ export function JobExecutionDialog({ job, open, onOpenChange }: JobExecutionDial
                     <Input
                       id="clientName"
                       value={formData.clientName}
-                      onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, clientName: e.target.value })
+                      }
                     />
                   </div>
                   <div className="space-y-2">
@@ -252,7 +297,9 @@ export function JobExecutionDialog({ job, open, onOpenChange }: JobExecutionDial
                     <Input
                       id="clientPhone"
                       value={formData.clientPhone}
-                      onChange={(e) => setFormData({ ...formData, clientPhone: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, clientPhone: e.target.value })
+                      }
                     />
                   </div>
                 </div>
@@ -270,7 +317,9 @@ export function JobExecutionDialog({ job, open, onOpenChange }: JobExecutionDial
                     <Label htmlFor="notDoneReason">Reason</Label>
                     <Select
                       value={formData.notDoneReason}
-                      onValueChange={(value) => setFormData({ ...formData, notDoneReason: value })}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, notDoneReason: value })
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select reason" />
@@ -300,7 +349,9 @@ export function JobExecutionDialog({ job, open, onOpenChange }: JobExecutionDial
                       id="escalationReason"
                       placeholder="Describe the issue that requires escalation..."
                       value={formData.escalationReason}
-                      onChange={(e) => setFormData({ ...formData, escalationReason: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, escalationReason: e.target.value })
+                      }
                       rows={3}
                     />
                   </div>
@@ -348,7 +399,9 @@ export function JobExecutionDialog({ job, open, onOpenChange }: JobExecutionDial
                     id="remarks"
                     placeholder="Add any additional notes or observations..."
                     value={formData.remarks}
-                    onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, remarks: e.target.value })
+                    }
                     rows={3}
                   />
                 </div>
