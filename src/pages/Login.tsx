@@ -27,7 +27,6 @@ interface LoginProps {
   onLogin?: (role: "admin" | "technician") => void;
 }
 
-// ✅ Updated API_BASE to use full https URL and /api prefix
 const API_BASE = "https://technician-production-e311.up.railway.app/api";
 
 const Login = ({ onLogin }: LoginProps) => {
@@ -48,7 +47,6 @@ const Login = ({ onLogin }: LoginProps) => {
     if (role === "technician") requestLocation();
   }, [role]);
 
-  // Function to request geolocation
   const requestLocation = () => {
     if (!navigator.geolocation) {
       setLocationStatus("denied");
@@ -90,37 +88,54 @@ const Login = ({ onLogin }: LoginProps) => {
     );
   };
 
-  // Handle login submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Ensure location is granted for technicians
-    if (role === "technician" && locationStatus !== "granted") {
-      toast({
-        title: "Location Required",
-        description: "Technician location must be captured to login.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setLoading(true);
 
     try {
-      if (role === "admin") {
-        // Admin login
-        const res = await axios.post(`${API_BASE}/auth/login`, {
-          email,
-          password,
+      // For technician, always get live location before login
+      if (role === "technician" && (!location || locationStatus !== "granted")) {
+        await new Promise<void>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              const loc: LocationData = {
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude,
+                timestamp: Date.now(),
+                accuracy: pos.coords.accuracy,
+              };
+              setLocation(loc);
+              setLocationStatus("granted");
+              resolve();
+            },
+            (err) => {
+              setLocationStatus("denied");
+              toast({
+                title: "Location Required",
+                description: "Technician location must be captured to login.",
+                variant: "destructive",
+              });
+              reject();
+            },
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+          );
         });
+      }
+
+      if (role === "admin") {
+        const res = await axios.post(`${API_BASE}/auth/login`, { email, password });
         const token = res.data.token;
+        const userId = res.data.user?.id;
+        if (!token || !userId) throw new Error("Invalid login response");
+
         localStorage.setItem("token", token);
+        localStorage.setItem("userId", userId.toString());
 
         toast({ title: "Login Successful", description: "Welcome Admin!" });
         onLogin?.("admin");
         navigate("/dashboard");
       } else {
-        // Technician login with location
+        // Technician login with current location
         const authRes = await axios.post(`${API_BASE}/auth/login`, {
           email,
           password,
@@ -132,10 +147,10 @@ const Login = ({ onLogin }: LoginProps) => {
 
         const token = authRes.data.token;
         const userId = authRes.data.user?.id;
-
         if (!token || !userId) throw new Error("Invalid login response");
 
         localStorage.setItem("token", token);
+        localStorage.setItem("userId", userId.toString());
 
         // Create technician session
         await axios.post(
@@ -144,18 +159,14 @@ const Login = ({ onLogin }: LoginProps) => {
           { headers: { Authorization: `Bearer ${token}` } }
         );
 
-        toast({
-          title: "Login Successful",
-          description: "Welcome Technician!",
-        });
+        toast({ title: "Login Successful", description: "Welcome Technician!" });
         onLogin?.("technician");
         navigate("/dashboard");
       }
     } catch (err: any) {
       toast({
         title: "Login Failed",
-        description:
-          err.response?.data?.message || err.message || "Invalid credentials",
+        description: err.response?.data?.message || err.message || "Invalid credentials",
         variant: "destructive",
       });
     } finally {

@@ -40,12 +40,12 @@ export default function TechnicianDashboard({ onLogout }: { onLogout: () => void
   const userId = localStorage.getItem("userId");
 
   const fetchJobs = async () => {
-    console.log("Fetching jobs... userId:", userId, "token:", token);
-    if (!token) {
-      setError("Token missing. Please login.");
+    if (!token || !userId) {
+      setError("Token or userId missing. Please login.");
       setLoadingJobs(false);
       return;
     }
+
     setLoadingJobs(true);
     setError(null);
 
@@ -54,30 +54,19 @@ export default function TechnicianDashboard({ onLogout }: { onLogout: () => void
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const fetched = res.data?.jobs || [];
-      console.log("Fetched jobs from API:", fetched);
+      const fetchedJobs = res.data?.jobs || [];
 
-      // --- Filter only if userId exists ---
-      let filteredJobs;
-      if (userId) {
-        filteredJobs = fetched.filter(
-          (job: any) => job.assignedTechnician && Number(job.assignedTechnician.id) === Number(userId)
-        );
-        // If filter returns 0, fallback to all jobs
-        if (filteredJobs.length === 0) {
-          console.warn("No jobs matched technician ID, displaying all jobs instead.");
-          filteredJobs = fetched;
-        }
-      } else {
-        filteredJobs = fetched; // fallback: display all jobs
-      }
+      // Filter only jobs assigned to logged-in technician
+      const technicianJobs = fetchedJobs.filter(
+        (job: any) => job.assignedTechnician?.id === Number(userId)
+      );
 
       // Sort newest first
-      filteredJobs.sort(
+      technicianJobs.sort(
         (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
 
-      setJobs(filteredJobs);
+      setJobs(technicianJobs);
     } catch (err: any) {
       console.error("Error fetching jobs:", err);
       setError(err?.response?.data?.message || err.message || "Failed to fetch jobs");
@@ -137,7 +126,7 @@ export default function TechnicianDashboard({ onLogout }: { onLogout: () => void
   const todayJobs = jobs.filter((job) => job.scheduledDate?.startsWith(todayDate));
   const pendingJobs = jobs.filter((job) => job.status?.toLowerCase() === "pending");
   const inProgressJobs = jobs.filter((job) => job.status?.toLowerCase() === "in-progress");
-  const completedJobs = jobs.filter((job) => job.status?.toLowerCase() === "completed");
+  const completedJobs = jobs.filter((job) => job.status?.toLowerCase() === "done" || job.status?.toLowerCase() === "completed");
 
   const renderJobCard = (job: any) => {
     const StatusIcon = statusIcons[job.status?.toLowerCase()] || Clock;
@@ -196,7 +185,7 @@ export default function TechnicianDashboard({ onLogout }: { onLogout: () => void
                 setSelectedJob(job);
               }}
             >
-              {["pending", "in-progress", "completed"].includes(job.status?.toLowerCase())
+              {["pending", "in-progress", "done"].includes(job.status?.toLowerCase())
                 ? job.status === "pending" ? "Start Job" :
                   job.status === "in-progress" ? "Continue Job" :
                     "View Details"
@@ -284,7 +273,7 @@ export default function TechnicianDashboard({ onLogout }: { onLogout: () => void
             {loadingJobs ? (
               <p className="text-center text-muted-foreground">Loading jobs...</p>
             ) : jobs.length === 0 ? (
-              <p className="text-center text-muted-foreground">No jobs found</p>
+              <p className="text-center text-muted-foreground">No jobs assigned to you</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {jobs.map(renderJobCard)}
