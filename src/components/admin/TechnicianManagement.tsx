@@ -142,14 +142,18 @@ export function TechnicianManagement() {
   const fetchTechnicians = useCallback(async () => {
     setLoading(true);
     try {
-      const usersRes = await api.get<Technician[]>("/users");
-      const sessionsRes = await api.get<{ id: number; latitude?: number; longitude?: number }[]>("/reports/technicians/active");
-      const activeIds = sessionsRes.data.map(t => t.id);
+      const usersRes = await api.get("/users");
+      const sessionsRes = await api.get("/reports/technicians/active");
 
-      const techs = usersRes.data
-        .filter(u => u.role === "TECHNICIAN")
+      const usersData: Technician[] = Array.isArray(usersRes.data) ? usersRes.data : usersRes.data?.data || [];
+      const sessionsData: { id: number; latitude?: number; longitude?: number }[] = Array.isArray(sessionsRes.data) ? sessionsRes.data : sessionsRes.data?.data || [];
+
+      const activeIds = sessionsData.map(s => s.id);
+
+      const techs: Technician[] = usersData
+        .filter(u => u.role?.toUpperCase() === "TECHNICIAN")
         .map(t => {
-          const session = sessionsRes.data.find(a => a.id === t.id);
+          const session = sessionsData.find(s => s.id === t.id);
           return {
             ...t,
             status: activeIds.includes(t.id) ? "active" : "inactive",
@@ -162,17 +166,15 @@ export function TechnicianManagement() {
       setTechnicians(techs);
       setLoading(false);
 
-      // Reverse geocode individually
-      techs.forEach(async (t) => {
+      // Reverse geocode each technician with lat/lng
+      techs.forEach(async t => {
         if (t.latitude && t.longitude) {
           const loc = await reverseGeocode(t.latitude, t.longitude);
-          setTechnicians(prev =>
-            prev.map(p => (p.id === t.id ? { ...p, location: loc } : p))
-          );
+          setTechnicians(prev => prev.map(p => p.id === t.id ? { ...p, location: loc } : p));
         }
       });
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error("Failed to fetch technicians:", err);
       toast.error("Failed to fetch technicians");
       setLoading(false);
     }
@@ -414,8 +416,14 @@ export function TechnicianManagement() {
         </Dialog>
       )}
 
+      {/* Job Execution Dialog */}
       {selectedJob && (
-        <AdminJobExecutionDialog open={jobDialogOpen} onOpenChange={setJobDialogOpen} job={selectedJob} onSave={handleSaveJob} />
+        <AdminJobExecutionDialog
+          open={jobDialogOpen}
+          job={selectedJob}
+          onOpenChange={setJobDialogOpen}
+          onSave={handleSaveJob}
+        />
       )}
     </div>
   );

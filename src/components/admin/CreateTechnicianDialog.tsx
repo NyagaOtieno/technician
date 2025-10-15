@@ -24,6 +24,15 @@ interface CreateTechnicianDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+interface FormData {
+  name: string;
+  email: string;
+  phone: string;
+  region: string;
+  role: string;
+  password: string;
+}
+
 const kenyanCounties = [
   "Nairobi",
   "Mombasa",
@@ -43,11 +52,18 @@ const roles = [
   { value: "ADMIN", label: "ADMIN" },
 ];
 
+const normalizePhone = (raw: string): string | null => {
+  const phone = raw.trim();
+  if (/^07\d{8}$/.test(phone)) return "+254" + phone.slice(1);
+  if (/^\+2547\d{8}$/.test(phone)) return phone;
+  return null;
+};
+
 export function CreateTechnicianDialog({
   open,
   onOpenChange,
 }: CreateTechnicianDialogProps) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     name: "",
     email: "",
     phone: "",
@@ -57,48 +73,8 @@ export function CreateTechnicianDialog({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Get admin token for registration
-  const getAdminToken = async (): Promise<string | null> => {
-    try {
-      const res = await fetch(
-        "https://jendietech-production.up.railway.app/api/auth/login",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: "admin@jendie.com",
-            password: "admin123",
-          }),
-        }
-      );
-      const data = await res.json();
-      if (res.ok) return data.token;
-      toast.error("Admin login failed", { description: data.message });
-      return null;
-    } catch (err) {
-      console.error(err);
-      toast.error("Admin login error");
-      return null;
-    }
-  };
-
-  // --- Phone Normalizer ---
-  const normalizePhone = (raw: string): string | null => {
-    let phone = raw.trim();
-
-    // Allow either 07XXXXXXXX or +2547XXXXXXXX
-    const localRegex = /^07\d{8}$/;
-    const intlRegex = /^\+2547\d{8}$/;
-
-    if (localRegex.test(phone)) {
-      return "+254" + phone.substring(1); // convert 07... to +2547...
-    }
-
-    if (intlRegex.test(phone)) {
-      return phone; // already in correct format
-    }
-
-    return null; // invalid
+  const handleChange = (field: keyof FormData, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -108,56 +84,42 @@ export function CreateTechnicianDialog({
     try {
       const { name, email, phone, password, role, region } = formData;
 
-      // Required fields
       if (!name || !email || !phone || !password || !role || !region) {
         toast.error("All fields are required");
-        setIsSubmitting(false);
         return;
       }
 
       const normalizedPhone = normalizePhone(phone);
       if (!normalizedPhone) {
-        toast.error(
-          "Phone number must be 07XXXXXXXX or +2547XXXXXXXX format"
-        );
-        setIsSubmitting(false);
+        toast.error("Phone must be 07XXXXXXXX or +2547XXXXXXXX");
         return;
       }
 
-      const token = await getAdminToken();
-      if (!token) throw new Error("Cannot get admin token");
-
       const payload = {
-        name: name.trim(),
-        email: email.trim(),
-        phone: normalizedPhone, // always +2547XXXXXXXX
-        password: password.trim(),
+        name,
+        email,
+        phone: normalizedPhone,
+        password,
         role,
         region,
       };
 
-      const response = await fetch(
-        "https://jendietech-production.up.railway.app/api/auth/register",
+      const res = await fetch(
+        "https://technician-production-e311.up.railway.app/api/users",
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         }
       );
 
-      const data = await response.json();
-
-      if (!response.ok)
-        throw new Error(data.message || "Failed to create user");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to create user");
 
       toast.success("User created successfully!", {
-        description: `${data.user.name} added.`,
+        description: `${data.name || name} added.`,
       });
 
-      // Reset form
       setFormData({
         name: "",
         email: "",
@@ -168,8 +130,10 @@ export function CreateTechnicianDialog({
       });
       onOpenChange(false);
     } catch (error: any) {
-      console.error("Error creating user:", error);
-      toast.error("Failed to create user", { description: error.message });
+      console.error(error);
+      toast.error("Failed to create user", {
+        description: error.message,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -196,11 +160,8 @@ export function CreateTechnicianDialog({
                 <Label htmlFor="name">Full Name</Label>
                 <Input
                   id="name"
-                  placeholder="James Mwangi"
                   value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
+                  onChange={(e) => handleChange("name", e.target.value)}
                   required
                 />
               </div>
@@ -208,11 +169,9 @@ export function CreateTechnicianDialog({
                 <Label htmlFor="password">Password</Label>
                 <Input
                   id="password"
-                  placeholder="3456TECH"
+                  type="password"
                   value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
+                  onChange={(e) => handleChange("password", e.target.value)}
                   required
                 />
               </div>
@@ -228,11 +187,8 @@ export function CreateTechnicianDialog({
                 <Input
                   id="email"
                   type="email"
-                  placeholder="james.mwangi@jendie.co.ke"
                   value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
+                  onChange={(e) => handleChange("email", e.target.value)}
                   required
                 />
               </div>
@@ -241,11 +197,8 @@ export function CreateTechnicianDialog({
                 <Input
                   id="phone"
                   type="tel"
-                  placeholder="+254700000000 or 07XXXXXXXX"
                   value={formData.phone}
-                  onChange={(e) =>
-                    setFormData({ ...formData, phone: e.target.value })
-                  }
+                  onChange={(e) => handleChange("phone", e.target.value)}
                   required
                 />
               </div>
@@ -260,18 +213,16 @@ export function CreateTechnicianDialog({
                 <Label htmlFor="region">Primary Location</Label>
                 <Select
                   value={formData.region}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, region: value })
-                  }
+                  onValueChange={(v) => handleChange("region", v)}
                   required
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select county" />
                   </SelectTrigger>
                   <SelectContent>
-                    {kenyanCounties.map((county) => (
-                      <SelectItem key={county} value={county}>
-                        {county}
+                    {kenyanCounties.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -281,9 +232,7 @@ export function CreateTechnicianDialog({
                 <Label htmlFor="role">Role</Label>
                 <Select
                   value={formData.role}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, role: value })
-                  }
+                  onValueChange={(v) => handleChange("role", v)}
                   required
                 >
                   <SelectTrigger>
@@ -311,7 +260,11 @@ export function CreateTechnicianDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" variant="orange" disabled={isSubmitting}>
+            <Button
+              type="submit"
+              variant="orange"
+              disabled={isSubmitting}
+            >
               {isSubmitting ? "Creating..." : "Create User"}
             </Button>
           </div>

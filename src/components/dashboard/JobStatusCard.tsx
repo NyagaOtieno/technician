@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 interface JobStatusCardProps {
   label: string;
-  statusKey: "PENDING" | "IN_PROGRESS" | "DONE" | "NOT_DONE" | "ESCALATED"; // backend schema
+  statusKey: "PENDING" | "IN_PROGRESS" | "DONE" | "NOT_DONE" | "ESCALATED";
   color: "default" | "warning" | "success" | "danger" | "secondary";
   trend: string;
 }
@@ -28,22 +28,32 @@ const badgeVariants: Record<JobStatusCardProps["color"], string> = {
 };
 
 export function JobStatusCard({ label, statusKey, color, trend }: JobStatusCardProps) {
-  const [count, setCount] = useState<number>(0);
+  const [count, setCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios
-      .get("https://jendietech-production.up.railway.app/api/jobs")
-      .then((res) => {
-        const jobs = res.data || [];
-        const filtered = jobs.filter((job: any) => job.status === statusKey);
-        setCount(filtered.length);
-      })
-      .catch((err) => {
+    let isMounted = true; // prevent state updates if unmounted
+    const fetchJobs = async () => {
+      setLoading(true);
+      try {
+        const res = await axios.get(
+          "https://technician-production-e311.up.railway.app/api/jobs?page=1&limit=1000"
+        );
+        const jobs = Array.isArray(res.data) ? res.data : res.data?.jobs || [];
+        const filtered = jobs.filter((job: any) => job?.status === statusKey);
+        if (isMounted) setCount(filtered.length);
+      } catch (err) {
         console.error(`Error fetching ${statusKey} jobs:`, err);
-        setCount(0);
-      })
-      .finally(() => setLoading(false));
+        if (isMounted) setCount(0);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    fetchJobs();
+    return () => {
+      isMounted = false;
+    };
   }, [statusKey]);
 
   return (
@@ -58,11 +68,11 @@ export function JobStatusCard({ label, statusKey, color, trend }: JobStatusCardP
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-muted-foreground">{label}</p>
             <Badge variant={badgeVariants[color] as any} className="text-xs">
-              {loading ? "..." : count}
+              {loading ? "..." : count ?? "N/A"}
             </Badge>
           </div>
           <div className="space-y-1">
-            <p className="text-2xl font-bold">{loading ? "..." : count}</p>
+            <p className="text-2xl font-bold">{loading ? "..." : count ?? "N/A"}</p>
             <p className="text-xs text-muted-foreground">{trend}</p>
           </div>
         </div>

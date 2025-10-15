@@ -29,9 +29,8 @@ interface CreateJobDialogProps {
 const jobTypes = [
   { value: "INSTALL", label: "Install" },
   { value: "RENEWAL", label: "Renewal" },
-  { value: "FAULT-CHECK", label: "Fault Check" },
-  { value: "MAINTENANCE", label: "Maintenance" },
-  { value: "REMOVAL", label: "Removal" },
+  { value: "FAULT_CHECK", label: "Fault Check" },  
+  { value: "REPAIR", label: "Repair" },
 ];
 
 export function CreateJobDialog({ open, onOpenChange }: CreateJobDialogProps) {
@@ -48,31 +47,52 @@ export function CreateJobDialog({ open, onOpenChange }: CreateJobDialogProps) {
   const [technicians, setTechnicians] = useState<any[]>([]);
   const { toast } = useToast();
 
-  // ✅ Fetch technicians from API
+  // ✅ Fetch technicians from backend
   useEffect(() => {
     const fetchTechs = async () => {
       try {
-        const token = localStorage.getItem("token");
         const res = await axios.get(
-          "https://jendietech-production.up.railway.app/api/users",
-          { headers: { Authorization: `Bearer ${token}` } }
+          "https://technician-production-e311.up.railway.app/api/users"
         );
-        const techs = res.data.filter((user: any) => user.role === "TECHNICIAN");
+
+        // Filter TECHNICIANS only
+        const techs = res.data.data.filter(
+          (user: any) => user.role === "TECHNICIAN"
+        );
         setTechnicians(techs);
       } catch (err) {
         console.error("Error fetching technicians:", err);
+        toast({
+          title: "Error",
+          description: "Failed to fetch technicians",
+          variant: "destructive",
+        });
       }
     };
     if (open) fetchTechs();
-  }, [open]);
+  }, [open, toast]);
 
   // ✅ Handle job creation
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Prevent backdated schedule
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selected = new Date(formData.scheduledDate);
+
+    if (selected < today) {
+      toast({
+        title: "⚠️ Invalid Date",
+        description: "Scheduled date cannot be in the past.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      const token = localStorage.getItem("token");
       await axios.post(
-        "https://jendietech-production.up.railway.app/api/jobs",
+        "https://technician-production-e311.up.railway.app/api/jobs",
         {
           vehicleReg: formData.vehicleReg,
           jobType: formData.jobType,
@@ -80,12 +100,14 @@ export function CreateJobDialog({ open, onOpenChange }: CreateJobDialogProps) {
           scheduledDate: new Date(formData.scheduledDate).toISOString(),
           location: formData.location,
           technicianId: parseInt(formData.technicianId),
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
+          clientName: formData.clientName,
+          clientPhone: formData.clientPhone,
+          notes: formData.notes,
+        }
       );
 
       toast({
-        title: "Job Created",
+        title: "✅ Job Created",
         description: `Job for ${formData.vehicleReg} assigned successfully.`,
       });
 
@@ -126,10 +148,10 @@ export function CreateJobDialog({ open, onOpenChange }: CreateJobDialogProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Vehicle Registration */}
             <div className="space-y-2">
-              <Label htmlFor="vehicleReg">Vehicle Registration Number</Label>
+              <Label htmlFor="vehicleReg">Vehicle Registration</Label>
               <Input
                 id="vehicleReg"
-                placeholder="e.g., KCA 123A"
+                placeholder="e.g., KCJ123T"
                 value={formData.vehicleReg}
                 onChange={(e) =>
                   setFormData({ ...formData, vehicleReg: e.target.value })
@@ -161,7 +183,7 @@ export function CreateJobDialog({ open, onOpenChange }: CreateJobDialogProps) {
               </Select>
             </div>
 
-            {/* Assigned Technician */}
+            {/* Technician */}
             <div className="space-y-2">
               <Label htmlFor="technician">Assigned Technician</Label>
               <Select
@@ -179,7 +201,10 @@ export function CreateJobDialog({ open, onOpenChange }: CreateJobDialogProps) {
                     <SelectItem key={tech.id} value={tech.id.toString()}>
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4" />
-                        {tech.name}
+                        {tech.name}{" "}
+                        <span className="text-xs text-muted-foreground">
+                          ({tech.online ? "Online" : "Offline"})
+                        </span>
                       </div>
                     </SelectItem>
                   ))}
@@ -196,6 +221,7 @@ export function CreateJobDialog({ open, onOpenChange }: CreateJobDialogProps) {
                   id="scheduledDate"
                   type="date"
                   value={formData.scheduledDate}
+                  min={new Date().toISOString().split("T")[0]} // ✅ prevent past dates
                   onChange={(e) =>
                     setFormData({ ...formData, scheduledDate: e.target.value })
                   }
@@ -222,31 +248,55 @@ export function CreateJobDialog({ open, onOpenChange }: CreateJobDialogProps) {
                 />
               </div>
             </div>
+
+            {/* Client Name */}
+            <div className="space-y-2">
+              <Label htmlFor="clientName">Client Name</Label>
+              <Input
+                id="clientName"
+                placeholder="e.g., John Doe"
+                value={formData.clientName}
+                onChange={(e) =>
+                  setFormData({ ...formData, clientName: e.target.value })
+                }
+                required
+              />
+            </div>
+
+            {/* Client Phone */}
+            <div className="space-y-2">
+              <Label htmlFor="clientPhone">Client Phone</Label>
+              <Input
+                id="clientPhone"
+                placeholder="+2547XXXXXXXX"
+                value={formData.clientPhone}
+                onChange={(e) =>
+                  setFormData({ ...formData, clientPhone: e.target.value })
+                }
+                required
+              />
+            </div>
           </div>
 
           {/* Notes */}
           <div className="space-y-2">
-            <Label htmlFor="notes">Additional Notes</Label>
+            <Label htmlFor="notes">Notes</Label>
             <Textarea
               id="notes"
-              placeholder="Any special instructions or notes..."
+              placeholder="Any special instructions..."
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               rows={3}
             />
           </div>
 
-          {/* Action Buttons */}
+          {/* Buttons */}
           <div className="flex justify-end gap-2 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" variant="orange">
-              Create Job & Send SMS Notification
+              Create Job & Send SMS
             </Button>
           </div>
         </form>

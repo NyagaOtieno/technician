@@ -1,9 +1,8 @@
-import { useState } from "react"; 
+import { useState } from "react";
 import { Plus, Filter, Download, Search, Calendar, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { JobStatusCard } from "./JobStatusCard";
@@ -11,7 +10,7 @@ import { JobTable } from "./JobTable";
 import { CreateJobDialog } from "./CreateJobDialog";
 import { TechnicianManagement } from "@/components/admin/TechnicianManagement";
 import { ProfileHeader } from "@/components/layout/ProfileHeader";
-import logo from "../../assets/logo.png";
+
 
 const statusMetrics = [
   { label: "Pending", statusKey: "PENDING", color: "default", trend: "+2 from yesterday" },
@@ -20,6 +19,32 @@ const statusMetrics = [
   { label: "Escalated", statusKey: "ESCALATED", color: "danger", trend: "0 from yesterday" },
   { label: "Not Done", statusKey: "NOT_DONE", color: "secondary", trend: "-1 from yesterday" },
 ];
+
+// Generic ErrorBoundary for safe rendering
+import { Component, ReactNode } from "react";
+class ErrorBoundary extends Component<{ children: ReactNode; fallback?: ReactNode }, { hasError: boolean }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any, info: any) {
+    console.error("Error caught in ErrorBoundary:", error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback || (
+        <div className="p-4 text-red-500 font-semibold">Something went wrong.</div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -30,7 +55,10 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
 
   return (
     <div className="min-h-screen bg-background">
-      <ProfileHeader userRole="admin" onLogout={onLogout} />
+      <ErrorBoundary fallback={<div className="p-4 text-red-500">Profile header failed to load.</div>}>
+        <ProfileHeader userRole="admin" onLogout={onLogout} />
+      </ErrorBoundary>
+
       <div className="p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-2 mb-6">
@@ -41,8 +69,8 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
             </TabsTrigger>
           </TabsList>
 
+          {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-6">
-            {/* Header Actions */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
                 <h1 className="text-3xl font-bold gradient-primary bg-clip-text text-transparent">
@@ -58,31 +86,28 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                   <Download className="h-4 w-4 mr-2" />
                   Export
                 </Button>
-                <Button
-                  variant="orange"
-                  onClick={() => setCreateJobOpen(true)}
-                  className="gap-2"
-                >
+                <Button variant="orange" onClick={() => setCreateJobOpen(true)} className="gap-2">
                   <Plus className="h-4 w-4" />
                   Create Job
                 </Button>
               </div>
             </div>
 
-            {/* Status Overview Cards */}
+            {/* Status Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               {statusMetrics.map((metric) => (
-                <JobStatusCard
-                  key={metric.label}
-                  label={metric.label}
-                  statusKey={metric.statusKey as any}
-                  color={metric.color as any}
-                  trend={metric.trend}
-                />
+                <ErrorBoundary key={metric.label}>
+                  <JobStatusCard
+                    label={metric.label}
+                    statusKey={metric.statusKey as any}
+                    color={metric.color as any}
+                    trend={metric.trend}
+                  />
+                </ErrorBoundary>
               ))}
             </div>
 
-            {/* Filters and Search */}
+            {/* Filters and Job Table */}
             <Card className="shadow-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -136,19 +161,26 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                   </Button>
                 </div>
 
-                <JobTable
-                  searchQuery={searchQuery}
-                  statusFilter={statusFilter}
-                  technicianFilter={technicianFilter}
-                />
+                <ErrorBoundary fallback={<div className="p-4 text-red-500">Job table failed to load.</div>}>
+                  <JobTable
+                    searchQuery={searchQuery || ""}
+                    statusFilter={statusFilter || "all"}
+                    technicianFilter={technicianFilter || "all"}
+                  />
+                </ErrorBoundary>
               </CardContent>
             </Card>
 
-            <CreateJobDialog open={createJobOpen} onOpenChange={setCreateJobOpen} />
+            <ErrorBoundary fallback={<div className="p-4 text-red-500">Create Job dialog failed.</div>}>
+              <CreateJobDialog open={createJobOpen} onOpenChange={setCreateJobOpen} />
+            </ErrorBoundary>
           </TabsContent>
 
+          {/* Technician Tab */}
           <TabsContent value="technicians">
-            <TechnicianManagement />
+            <ErrorBoundary fallback={<div className="p-4 text-red-500">Technician management failed.</div>}>
+              <TechnicianManagement />
+            </ErrorBoundary>
           </TabsContent>
         </Tabs>
       </div>

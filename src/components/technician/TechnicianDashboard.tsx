@@ -8,10 +8,8 @@ import { Clock, AlertTriangle, CheckCircle2, XCircle, MapPin, User, Phone } from
 import { useToast } from "@/hooks/use-toast";
 import { JobExecutionDialog } from "./JobExecutionDialog";
 import { ProfileHeader } from "@/components/layout/ProfileHeader";
-import logo from "../../assets/logo.png";
 
-
-const API_BASE = "https://jendietech-production.up.railway.app/api";
+const API_BASE = "https://technician-production-e311.up.railway.app/api";
 
 const statusIcons = {
   pending: Clock,
@@ -27,36 +25,65 @@ const priorityColors = {
   low: "success",
 } as const;
 
-function TechnicianDashboard({ onLogout }: { onLogout: () => void }) {
+export default function TechnicianDashboard({ onLogout }: { onLogout: () => void }) {
   const { toast } = useToast();
 
   const [jobs, setJobs] = useState<any[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("today");
-
   const [sessionActive, setSessionActive] = useState(false);
   const [loadingSession, setLoadingSession] = useState(false);
 
   const token = localStorage.getItem("token");
   const userId = localStorage.getItem("userId");
 
-  // ---- Fetch Jobs ----
   const fetchJobs = async () => {
+    console.log("Fetching jobs... userId:", userId, "token:", token);
+    if (!token) {
+      setError("Token missing. Please login.");
+      setLoadingJobs(false);
+      return;
+    }
     setLoadingJobs(true);
     setError(null);
+
     try {
-      const res = await axios.get(`${API_BASE}/jobs`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      const res = await axios.get(`${API_BASE}/jobs?page=1&limit=100`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-      setJobs(Array.isArray(res.data) ? res.data : []);
+
+      const fetched = res.data?.jobs || [];
+      console.log("Fetched jobs from API:", fetched);
+
+      // --- Filter only if userId exists ---
+      let filteredJobs;
+      if (userId) {
+        filteredJobs = fetched.filter(
+          (job: any) => job.assignedTechnician && Number(job.assignedTechnician.id) === Number(userId)
+        );
+        // If filter returns 0, fallback to all jobs
+        if (filteredJobs.length === 0) {
+          console.warn("No jobs matched technician ID, displaying all jobs instead.");
+          filteredJobs = fetched;
+        }
+      } else {
+        filteredJobs = fetched; // fallback: display all jobs
+      }
+
+      // Sort newest first
+      filteredJobs.sort(
+        (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+
+      setJobs(filteredJobs);
     } catch (err: any) {
-      setError(err.message || "Failed to fetch jobs");
+      console.error("Error fetching jobs:", err);
+      setError(err?.response?.data?.message || err.message || "Failed to fetch jobs");
       toast({
         title: "Error fetching jobs",
-        description: err.message,
+        description: err?.response?.data?.message || err.message,
         variant: "destructive",
       });
     } finally {
@@ -64,26 +91,19 @@ function TechnicianDashboard({ onLogout }: { onLogout: () => void }) {
     }
   };
 
-  // ---- Session ----
   const startSession = async () => {
     if (!token || !userId) return;
     setLoadingSession(true);
     try {
       const res = await axios.post(
         `${API_BASE}/sessions/login`,
-        { userId: parseInt(userId) },
+        { userId: Number(userId) },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      if (res.status === 200) {
-        setSessionActive(true);
-        toast({ title: "Session Started", description: "You are now online." });
-      }
+      if (res.status === 200) setSessionActive(true);
     } catch (err: any) {
-      toast({
-        title: "Session Error",
-        description: err.message,
-        variant: "destructive",
-      });
+      console.error("Session start error:", err);
+      toast({ title: "Session Error", description: err.message, variant: "destructive" });
     } finally {
       setLoadingSession(false);
     }
@@ -95,65 +115,33 @@ function TechnicianDashboard({ onLogout }: { onLogout: () => void }) {
     try {
       const res = await axios.post(
         `${API_BASE}/sessions/logout`,
-        { userId: parseInt(userId) },
+        { userId: Number(userId) },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      if (res.status === 200) {
-        setSessionActive(false);
-        toast({ title: "Session Ended", description: "You are now offline." });
-      }
+      if (res.status === 200) setSessionActive(false);
     } catch (err: any) {
-      toast({
-        title: "Session Error",
-        description: err.message,
-        variant: "destructive",
-      });
+      console.error("Session end error:", err);
+      toast({ title: "Session Error", description: err.message, variant: "destructive" });
     } finally {
       setLoadingSession(false);
     }
   };
 
-  // ---- Roll Call ----
-  const takeRollCall = async () => {
-    if (!token) return;
-    try {
-      const res = await axios.post(
-        `${API_BASE}/rollcall`,
-        { region: "Nairobi" },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (res.status === 200) {
-        toast({
-          title: "Attendance Marked",
-          description: "Roll call successful!",
-        });
-      }
-    } catch (err: any) {
-      toast({
-        title: "Roll Call Error",
-        description: err.message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  // ---- Initial Load ----
   useEffect(() => {
     fetchJobs();
-    if (!sessionActive) startSession();
+    startSession();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ---- Filters ----
   const todayDate = new Date().toISOString().split("T")[0];
   const todayJobs = jobs.filter((job) => job.scheduledDate?.startsWith(todayDate));
   const pendingJobs = jobs.filter((job) => job.status?.toLowerCase() === "pending");
   const inProgressJobs = jobs.filter((job) => job.status?.toLowerCase() === "in-progress");
   const completedJobs = jobs.filter((job) => job.status?.toLowerCase() === "completed");
 
-  // ---- Render Job Card ----
   const renderJobCard = (job: any) => {
-    const StatusIcon = statusIcons[job.status?.toLowerCase() as keyof typeof statusIcons] || Clock;
+    const StatusIcon = statusIcons[job.status?.toLowerCase()] || Clock;
+
     return (
       <Card
         key={job.id}
@@ -164,13 +152,10 @@ function TechnicianDashboard({ onLogout }: { onLogout: () => void }) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <StatusIcon className="h-4 w-4 text-primary" />
-              <CardTitle className="text-lg">{job.id}</CardTitle>
+              <CardTitle className="text-lg">{job.vehicleReg || job.id}</CardTitle>
             </div>
             <Badge
-              variant={
-                priorityColors[job.priority?.toLowerCase() as keyof typeof priorityColors] ||
-                "secondary"
-              }
+              variant={priorityColors[job.priority?.toLowerCase()] || "secondary"}
             >
               {job.priority || "normal"}
             </Badge>
@@ -179,18 +164,18 @@ function TechnicianDashboard({ onLogout }: { onLogout: () => void }) {
         <CardContent className="space-y-3">
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div>
-              <p className="text-muted-foreground">Vehicle</p>
-              <p className="font-mono font-medium">{job.vehicleReg || "N/A"}</p>
-            </div>
-            <div>
               <p className="text-muted-foreground">Type</p>
               <p className="font-medium">{job.jobType || "N/A"}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Status</p>
+              <p className="font-medium">{job.status || "N/A"}</p>
             </div>
           </div>
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm">
               <User className="h-4 w-4 text-muted-foreground" />
-              <span>{job.client || "Unknown"}</span>
+              <span>{job.clientName || "Unknown"}</span>
             </div>
             <div className="flex items-center gap-2 text-sm">
               <Phone className="h-4 w-4 text-muted-foreground" />
@@ -211,12 +196,11 @@ function TechnicianDashboard({ onLogout }: { onLogout: () => void }) {
                 setSelectedJob(job);
               }}
             >
-              {job.status?.toLowerCase() === "pending" && "Start Job"}
-              {job.status?.toLowerCase() === "in-progress" && "Continue Job"}
-              {job.status?.toLowerCase() === "completed" && "View Details"}
-              {!["pending", "in-progress", "completed"].includes(
-                job.status?.toLowerCase() || ""
-              ) && "View Job"}
+              {["pending", "in-progress", "completed"].includes(job.status?.toLowerCase())
+                ? job.status === "pending" ? "Start Job" :
+                  job.status === "in-progress" ? "Continue Job" :
+                    "View Details"
+                : "View Job"}
             </Button>
           </div>
         </CardContent>
@@ -229,45 +213,25 @@ function TechnicianDashboard({ onLogout }: { onLogout: () => void }) {
       <ProfileHeader userRole="technician" onLogout={onLogout} />
 
       <div className="p-6 space-y-6">
-        {/* Header & Session */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold gradient-primary bg-clip-text text-transparent">
               My Jobs
             </h1>
-            <p className="text-muted-foreground">
-              Track and complete your assigned jobs efficiently
-            </p>
+            <p className="text-muted-foreground">Track and complete your assigned jobs efficiently</p>
           </div>
           <div className="flex gap-2">
-            <Button
-              onClick={startSession}
-              disabled={sessionActive || loadingSession}
-              variant="default"
-            >
+            <Button onClick={startSession} disabled={sessionActive || loadingSession} variant="default">
               Start Session
             </Button>
-            <Button
-              onClick={endSession}
-              disabled={!sessionActive || loadingSession}
-              variant="destructive"
-            >
+            <Button onClick={endSession} disabled={!sessionActive || loadingSession} variant="destructive">
               End Session
-            </Button>
-            <Button onClick={takeRollCall} variant="secondary">
-              Mark Attendance
             </Button>
           </div>
         </div>
 
-        {/* Error */}
-        {error && (
-          <Card className="shadow-card border border-destructive p-4 bg-destructive/5">
-            <p className="text-destructive">⚠️ {error}</p>
-          </Card>
-        )}
+        {error && <p className="text-destructive text-center">{error}</p>}
 
-        {/* Quick Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="shadow-card border-l-4 border-l-warning bg-warning/5">
             <CardContent className="p-4 flex justify-between items-center">
@@ -298,7 +262,6 @@ function TechnicianDashboard({ onLogout }: { onLogout: () => void }) {
           </Card>
         </div>
 
-        {/* Job Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="today">Today's Jobs</TabsTrigger>
@@ -309,13 +272,7 @@ function TechnicianDashboard({ onLogout }: { onLogout: () => void }) {
             {loadingJobs ? (
               <p className="text-center text-muted-foreground">Loading jobs...</p>
             ) : todayJobs.length === 0 ? (
-              <Card className="shadow-card">
-                <CardContent className="p-8 text-center">
-                  <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No jobs scheduled for today</h3>
-                  <p className="text-muted-foreground">Enjoy your day off!</p>
-                </CardContent>
-              </Card>
+              <p className="text-center text-muted-foreground">No jobs scheduled for today</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {todayJobs.map(renderJobCard)}
@@ -327,12 +284,7 @@ function TechnicianDashboard({ onLogout }: { onLogout: () => void }) {
             {loadingJobs ? (
               <p className="text-center text-muted-foreground">Loading jobs...</p>
             ) : jobs.length === 0 ? (
-              <Card className="shadow-card">
-                <CardContent className="p-8 text-center">
-                  <h3 className="text-lg font-medium mb-2">No jobs found</h3>
-                  <p className="text-muted-foreground">You have no assigned jobs.</p>
-                </CardContent>
-              </Card>
+              <p className="text-center text-muted-foreground">No jobs found</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {jobs.map(renderJobCard)}
@@ -341,7 +293,6 @@ function TechnicianDashboard({ onLogout }: { onLogout: () => void }) {
           </TabsContent>
         </Tabs>
 
-        {/* Job Dialog */}
         {selectedJob && (
           <JobExecutionDialog
             job={selectedJob}
@@ -353,5 +304,3 @@ function TechnicianDashboard({ onLogout }: { onLogout: () => void }) {
     </div>
   );
 }
-
-export default TechnicianDashboard;

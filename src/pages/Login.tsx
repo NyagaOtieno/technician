@@ -27,7 +27,8 @@ interface LoginProps {
   onLogin?: (role: "admin" | "technician") => void;
 }
 
-const API_BASE = "https://jendietech-production.up.railway.app/api";
+// ✅ Updated API_BASE to use full https URL and /api prefix
+const API_BASE = "https://technician-production-e311.up.railway.app/api";
 
 const Login = ({ onLogin }: LoginProps) => {
   const [role, setRole] = useState<"admin" | "technician">("admin");
@@ -38,13 +39,16 @@ const Login = ({ onLogin }: LoginProps) => {
     "idle" | "requesting" | "granted" | "denied"
   >("idle");
   const [loading, setLoading] = useState(false);
+
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  // Always request location if technician role
   useEffect(() => {
     if (role === "technician") requestLocation();
   }, [role]);
 
+  // Function to request geolocation
   const requestLocation = () => {
     if (!navigator.geolocation) {
       setLocationStatus("denied");
@@ -57,6 +61,7 @@ const Login = ({ onLogin }: LoginProps) => {
     }
 
     setLocationStatus("requesting");
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const loc: LocationData = {
@@ -81,12 +86,24 @@ const Login = ({ onLogin }: LoginProps) => {
           variant: "destructive",
         });
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   };
 
+  // Handle login submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Ensure location is granted for technicians
+    if (role === "technician" && locationStatus !== "granted") {
+      toast({
+        title: "Location Required",
+        description: "Technician location must be captured to login.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -99,38 +116,28 @@ const Login = ({ onLogin }: LoginProps) => {
         const token = res.data.token;
         localStorage.setItem("token", token);
 
-        toast({ title: "Login successful!", description: "Welcome Admin" });
+        toast({ title: "Login Successful", description: "Welcome Admin!" });
         onLogin?.("admin");
         navigate("/dashboard");
       } else {
-        // Technician login
-        if (!location || locationStatus !== "granted") {
-          toast({
-            title: "Location Required",
-            description: "GPS is mandatory for login.",
-            variant: "destructive",
-          });
-          setLoading(false);
-          return;
-        }
-
+        // Technician login with location
         const authRes = await axios.post(`${API_BASE}/auth/login`, {
           email,
           password,
-          latitude: location.latitude,
-          longitude: location.longitude,
-          timestamp: location.timestamp,
-          accuracy: location.accuracy || 0,
+          latitude: location!.latitude,
+          longitude: location!.longitude,
+          timestamp: location!.timestamp,
+          accuracy: location!.accuracy || 0,
         });
 
         const token = authRes.data.token;
         const userId = authRes.data.user?.id;
 
-        if (!userId || !token)
-          throw new Error("Invalid login response from server");
+        if (!token || !userId) throw new Error("Invalid login response");
 
         localStorage.setItem("token", token);
 
+        // Create technician session
         await axios.post(
           `${API_BASE}/sessions/login`,
           { userId },
@@ -148,9 +155,7 @@ const Login = ({ onLogin }: LoginProps) => {
       toast({
         title: "Login Failed",
         description:
-          err.response?.data?.message ||
-          err.message ||
-          "Invalid credentials",
+          err.response?.data?.message || err.message || "Invalid credentials",
         variant: "destructive",
       });
     } finally {
@@ -170,10 +175,7 @@ const Login = ({ onLogin }: LoginProps) => {
         );
       case "granted":
         return (
-          <Badge
-            variant="default"
-            className="gap-2 bg-success text-success-foreground"
-          >
+          <Badge variant="default" className="gap-2 bg-success text-success-foreground">
             <MapPin className="h-3 w-3" />
             Location Captured
           </Badge>
@@ -195,11 +197,7 @@ const Login = ({ onLogin }: LoginProps) => {
       <div className="w-full max-w-md">
         <Card className="shadow-lg border">
           <CardHeader className="text-center">
-            <img
-              src={logo} // fixed logo import
-              alt="JENDIE Tech"
-              className="h-16 mx-auto mb-4"
-            />
+            <img src={logo} alt="JENDIE Tech" className="h-16 mx-auto mb-4" />
             <CardTitle className="text-2xl font-bold text-foreground">
               {role === "admin" ? "Admin Login" : "Technician Login"}
             </CardTitle>
@@ -208,9 +206,7 @@ const Login = ({ onLogin }: LoginProps) => {
                 ? "Sign in to access the JENDIE Admin Dashboard"
                 : "Technician login requires GPS location tracking"}
             </CardDescription>
-            <div className="flex justify-center mt-4">
-              {getLocationStatusBadge()}
-            </div>
+            <div className="flex justify-center mt-4">{getLocationStatusBadge()}</div>
           </CardHeader>
           <CardContent>
             <div className="flex justify-center mb-4 gap-2">
@@ -258,11 +254,7 @@ const Login = ({ onLogin }: LoginProps) => {
               <Button
                 type="submit"
                 className="w-full gradient-primary text-primary-foreground hover:opacity-90 transition-opacity"
-                disabled={
-                  loading ||
-                  (role === "technician" &&
-                    (!location || locationStatus !== "granted"))
-                }
+                disabled={loading || (role === "technician" && locationStatus !== "granted")}
               >
                 {loading ? (
                   <>
@@ -279,7 +271,7 @@ const Login = ({ onLogin }: LoginProps) => {
                   type="button"
                   variant="outline"
                   onClick={requestLocation}
-                  className="w-full"
+                  className="w-full mt-2"
                 >
                   <MapPin className="mr-2 h-4 w-4" />
                   Retry Location Access

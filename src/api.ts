@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from "axios";
 
-const BASE_URL = "https://jendietech-production.up.railway.app/api";
+const BASE_URL = "https://technician-production-e311.up.railway.appsss/api";
 
 // Create a centralized Axios instance
 const api: AxiosInstance = axios.create({

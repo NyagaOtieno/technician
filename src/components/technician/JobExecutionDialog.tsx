@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import axios from "axios";
 
 interface JobExecutionDialogProps {
   job: any;
@@ -39,17 +40,17 @@ interface JobExecutionDialogProps {
 }
 
 const governorStatuses = [
-  { value: "active", label: "Active" },
-  { value: "faulty", label: "Faulty" },
-  { value: "not-installed", label: "Not Installed" },
+  { value: "INSTALLED", label: "Installed" },
+  { value: "FAULTY", label: "Faulty" },
+  { value: "NOT_INSTALLED", label: "Not Installed" },
 ];
 
 const notDoneReasons = [
-  { value: "client-unavailable", label: "Client Unavailable" },
-  { value: "vehicle-missing", label: "Vehicle Missing" },
-  { value: "access-denied", label: "Access Denied" },
-  { value: "location-incorrect", label: "Location Incorrect" },
-  { value: "other", label: "Other" },
+  { value: "CLIENT_UNAVAILABLE", label: "Client Unavailable" },
+  { value: "VEHICLE_MISSING", label: "Vehicle Missing" },
+  { value: "ACCESS_DENIED", label: "Access Denied" },
+  { value: "LOCATION_INCORRECT", label: "Location Incorrect" },
+  { value: "OTHER", label: "Other" },
 ];
 
 export function JobExecutionDialog({
@@ -61,14 +62,13 @@ export function JobExecutionDialog({
   const [formData, setFormData] = useState({
     governorSerial: "",
     governorStatus: "",
-    gpsLocation: "Auto-captured: -1.2921, 36.8219", // Default coordinates (Nairobi)
+    gpsLocation: "Auto-captured: -1.2921, 36.8219",
     clientName: job.client,
     clientPhone: job.clientPhone,
     remarks: "",
     notDoneReason: "",
     escalationReason: "",
     photos: [] as File[],
-    signature: null as string | null,
   });
 
   const [startTime] = useState(new Date().toLocaleString());
@@ -79,23 +79,65 @@ export function JobExecutionDialog({
 
   const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
-    console.log("Uploaded photos:", files); // Debugging line
     setFormData({ ...formData, photos: [...formData.photos, ...files] });
   };
 
-  const handleSubmit = () => {
-    // Basic validation before submitting
-    if (!formData.governorSerial || !formData.governorStatus) {
-      console.error("Please fill in all required fields.");
-      return;
+  const uploadPhotos = async () => {
+    if (formData.photos.length === 0) return;
+    try {
+      const fd = new FormData();
+      formData.photos.forEach((file) => fd.append("photos", file));
+      await axios.put(
+        `https://technician-production-e311.up.railway.app/api/jobs/update/${job.id}`,
+        fd,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+      alert("Photos uploaded successfully!");
+      setFormData({ ...formData, photos: [] });
+    } catch (error) {
+      console.error("Photo upload failed:", error);
+      alert("Photo upload failed. Please try again.");
     }
-
-    // In real app, this would save to backend and update job status
-    console.log("Submitting job:", { ...formData, status: jobStatus });
-
-    // Close dialog
-    onOpenChange(false);
   };
+
+  // --- UPDATED handleSubmit ---
+  const handleSubmit = async () => {
+    try {
+      // Map frontend statuses to backend enum
+      const statusMap: Record<string, string> = {
+        "pending": "PENDING",
+        "in-progress": "IN_PROGRESS",
+        "completed": "DONE",
+        "escalated": "ESCALATED",
+        "not-done": "NOT_DONE",
+      };
+
+      await axios.put(
+        `https://technician-production-e311.up.railway.app/api/jobs/update/${job.id}`,
+        {
+          userId: job.technicianId || "2",
+          status: statusMap[jobStatus] || "IN_PROGRESS",
+          governorSerial: formData.governorSerial,
+          governorStatus: formData.governorStatus,
+          clientName: formData.clientName,
+          clientPhone: formData.clientPhone,
+          remarks: formData.remarks,
+          latitude: -1.2921,
+          longitude: 36.8219,
+          notDoneReason: formData.notDoneReason,
+          escalationReason: formData.escalationReason,
+        },
+        { headers: { "Content-Type": "application/json" } }
+      );
+
+      alert("Job updated successfully!");
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Job update failed:", error);
+      alert("Job update failed. Please try again.");
+    }
+  };
+  // ---------------------------
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -114,11 +156,7 @@ export function JobExecutionDialog({
     }
   };
 
-  // Ensure job is valid before rendering
-  if (!job) {
-    console.error("Job data is missing");
-    return null; // Don't render if no job data is passed
-  }
+  if (!job) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -134,7 +172,7 @@ export function JobExecutionDialog({
         </DialogHeader>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Job Info Sidebar */}
+          {/* Sidebar */}
           <div className="space-y-4">
             <Card className="shadow-card">
               <CardHeader>
@@ -221,9 +259,9 @@ export function JobExecutionDialog({
             </Card>
           </div>
 
-          {/* Job Execution Form */}
+          {/* Execution Form */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Basic Information */}
+            {/* Governor Info */}
             <Card className="shadow-card">
               <CardHeader>
                 <CardTitle>Job Information</CardTitle>
@@ -231,10 +269,9 @@ export function JobExecutionDialog({
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="governorSerial">Governor Serial Number</Label>
+                    <Label htmlFor="governorSerial">Governor Serial</Label>
                     <Input
                       id="governorSerial"
-                      placeholder="Enter serial number"
                       value={formData.governorSerial}
                       onChange={(e) =>
                         setFormData({ ...formData, governorSerial: e.target.value })
@@ -265,20 +302,7 @@ export function JobExecutionDialog({
 
                 <div className="space-y-2">
                   <Label htmlFor="gpsLocation">GPS Location</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="gpsLocation"
-                      value={formData.gpsLocation}
-                      onChange={(e) =>
-                        setFormData({ ...formData, gpsLocation: e.target.value })
-                      }
-                      className="flex-1"
-                    />
-                    <Button variant="outline" size="sm">
-                      <MapPin className="h-4 w-4 mr-2" />
-                      Refresh GPS
-                    </Button>
-                  </div>
+                  <Input id="gpsLocation" value={formData.gpsLocation} readOnly />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -306,33 +330,31 @@ export function JobExecutionDialog({
               </CardContent>
             </Card>
 
-            {/* Conditional Sections based on status */}
+            {/* Conditional Sections */}
             {jobStatus === "not-done" && (
               <Card className="shadow-card border-l-4 border-l-secondary">
                 <CardHeader>
                   <CardTitle className="text-danger">Job Cannot be Completed</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="notDoneReason">Reason</Label>
-                    <Select
-                      value={formData.notDoneReason}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, notDoneReason: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select reason" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {notDoneReasons.map((reason) => (
-                          <SelectItem key={reason.value} value={reason.value}>
-                            {reason.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <CardContent>
+                  <Label>Reason</Label>
+                  <Select
+                    value={formData.notDoneReason}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, notDoneReason: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select reason" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {notDoneReasons.map((r) => (
+                        <SelectItem key={r.value} value={r.value}>
+                          {r.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </CardContent>
               </Card>
             )}
@@ -342,31 +364,27 @@ export function JobExecutionDialog({
                 <CardHeader>
                   <CardTitle className="text-danger">Escalation Required</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="escalationReason">Escalation Reason</Label>
-                    <Textarea
-                      id="escalationReason"
-                      placeholder="Describe the issue that requires escalation..."
-                      value={formData.escalationReason}
-                      onChange={(e) =>
-                        setFormData({ ...formData, escalationReason: e.target.value })
-                      }
-                      rows={3}
-                    />
-                  </div>
+                <CardContent>
+                  <Label>Escalation Reason</Label>
+                  <Textarea
+                    value={formData.escalationReason}
+                    onChange={(e) =>
+                      setFormData({ ...formData, escalationReason: e.target.value })
+                    }
+                    rows={3}
+                  />
                 </CardContent>
               </Card>
             )}
 
-            {/* Photos and Documentation */}
+            {/* Documentation */}
             <Card className="shadow-card">
               <CardHeader>
                 <CardTitle>Documentation</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="photos">Photo Evidence</Label>
+                  <Label>Photo Evidence</Label>
                   <div className="border-2 border-dashed border-muted rounded-lg p-4 text-center">
                     <Camera className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                     <p className="text-sm text-muted-foreground mb-2">Upload photos</p>
@@ -390,14 +408,20 @@ export function JobExecutionDialog({
                         {formData.photos.length} photo(s) selected
                       </p>
                     )}
+                    {formData.photos.length > 0 && (
+                      <Button
+                        onClick={uploadPhotos}
+                        className="mt-2 bg-blue-500 text-white w-full"
+                      >
+                        Upload Photos
+                      </Button>
+                    )}
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="remarks">Remarks/Notes</Label>
+                  <Label>Remarks/Notes</Label>
                   <Textarea
-                    id="remarks"
-                    placeholder="Add any additional notes or observations..."
                     value={formData.remarks}
                     onChange={(e) =>
                       setFormData({ ...formData, remarks: e.target.value })
@@ -408,12 +432,12 @@ export function JobExecutionDialog({
               </CardContent>
             </Card>
 
-            {/* Submit Actions */}
+            {/* Submit */}
             <div className="flex justify-end gap-2 pt-4">
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button variant="orange" onClick={handleSubmit}>
+              <Button onClick={handleSubmit} className="bg-orange-500 text-white">
                 Submit Job Update
               </Button>
             </div>
