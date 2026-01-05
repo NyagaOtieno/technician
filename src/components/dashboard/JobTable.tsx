@@ -72,7 +72,7 @@ export function JobTable({
       setError(null);
       try {
         const res = await axios.get(
-          "https://technician-production-e311.up.railway.app/api/jobs?page=1&limit=1000"
+          "https://technician-production-0728.up.railway.app/api/jobs?page=1&limit=1000"
         );
         if (isMounted) {
           const data = Array.isArray(res.data) ? res.data : res.data?.jobs || [];
