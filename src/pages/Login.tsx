@@ -27,7 +27,7 @@ interface LoginProps {
   onLogin?: (role: "admin" | "technician") => void;
 }
 
-const API_BASE = "technician-production-0728.up.railway.app/api";
+const API_BASE = "https://technician-production-0728.up.railway.app/api";
 
 const Login = ({ onLogin }: LoginProps) => {
   const [role, setRole] = useState<"admin" | "technician">("admin");
