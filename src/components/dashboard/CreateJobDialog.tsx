@@ -52,7 +52,7 @@ export function CreateJobDialog({ open, onOpenChange }: CreateJobDialogProps) {
     const fetchTechs = async () => {
       try {
         const res = await axios.get(
-          "https://technician-production-e311.up.railway.app/api/users"
+          "https://technician-production-0728.up.railway.app/api/users"
         );
 
         // Filter TECHNICIANS only
@@ -92,7 +92,7 @@ export function CreateJobDialog({ open, onOpenChange }: CreateJobDialogProps) {
 
     try {
       await axios.post(
-        "https://technician-production-e311.up.railway.app/api/jobs",
+        "https://technician-production-0728.up.railway.app/api/jobs",
         {
           vehicleReg: formData.vehicleReg,
           jobType: formData.jobType,

@@ -37,7 +37,7 @@ export function JobStatusCard({ label, statusKey, color, trend }: JobStatusCardP
       setLoading(true);
       try {
         const res = await axios.get(
-          "https://technician-production-e311.up.railway.app/api/jobs?page=1&limit=1000"
+          "https://technician-production-0728.up.railway.app/api/jobs?page=1&limit=1000"
         );
         const jobs = Array.isArray(res.data) ? res.data : res.data?.jobs || [];
         const filtered = jobs.filter((job: any) => job?.status === statusKey);

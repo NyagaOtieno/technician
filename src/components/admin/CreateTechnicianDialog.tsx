@@ -105,7 +105,7 @@ export function CreateTechnicianDialog({
       };
 
       const res = await fetch(
-        "https://technician-production-e311.up.railway.app/api/users",
+        "https://technician-production-0728.up.railway.app/api/users",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
