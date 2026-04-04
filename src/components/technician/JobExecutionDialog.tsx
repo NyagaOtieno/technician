@@ -88,7 +88,7 @@ export function JobExecutionDialog({
       const fd = new FormData();
       formData.photos.forEach((file) => fd.append("photos", file));
       await axios.put(
-        `https://technician-production-e311.up.railway.app/api/jobs/update/${job.id}`,
+        `https://technician-production-0728.up.railway.app/api/jobs/update/${job.id}`,
         fd,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
@@ -113,7 +113,7 @@ export function JobExecutionDialog({
       };
 
       await axios.put(
-        `https://technician-production-e311.up.railway.app/api/jobs/update/${job.id}`,
+        `https://technician-production-0728.up.railway.app/api/jobs/update/${job.id}`,
         {
           userId: job.technicianId || "2",
           status: statusMap[jobStatus] || "IN_PROGRESS",

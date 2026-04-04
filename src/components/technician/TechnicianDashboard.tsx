@@ -1,36 +1,16 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import {
-  Clock,
-  AlertTriangle,
-  CheckCircle2,
-  XCircle,
-  MapPin,
-  User,
-  Phone,
-} from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Clock, AlertTriangle, CheckCircle2, XCircle, MapPin, User, Phone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { JobExecutionDialog } from "./JobExecutionDialog";
 import { ProfileHeader } from "@/components/layout/ProfileHeader";
+import { API_BASE } from "@/config/api";
 
-// Use proxy-friendly relative URL
-const API_BASE = "/api";
-
-const statusIcons: Record<string, any> = {
+const statusIcons = {
   pending: Clock,
   "in-progress": AlertTriangle,
   completed: CheckCircle2,
@@ -44,27 +24,13 @@ const priorityColors = {
   low: "success",
 } as const;
 
-interface Job {
-  id: number;
-  vehicleReg?: string;
-  jobType?: string;
-  status?: string;
-  priority?: string;
-  clientName?: string;
-  clientPhone?: string;
-  location?: string;
-  scheduledDate?: string;
-  assignedTechnician?: { id: number };
-  createdAt?: string;
-}
-
 export default function TechnicianDashboard({ onLogout }: { onLogout: () => void }) {
   const { toast } = useToast();
 
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const [jobs, setJobs] = useState<any[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [selectedJob, setSelectedJob] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("today");
   const [sessionActive, setSessionActive] = useState(false);
   const [loadingSession, setLoadingSession] = useState(false);
@@ -72,7 +38,7 @@ export default function TechnicianDashboard({ onLogout }: { onLogout: () => void
   const token = localStorage.getItem("token");
   const userId = localStorage.getItem("userId");
 
-  const fetchJobs = useCallback(async () => {
+  const fetchJobs = async () => {
     if (!token || !userId) {
       setError("Token or userId missing. Please login.");
       setLoadingJobs(false);
@@ -85,18 +51,15 @@ export default function TechnicianDashboard({ onLogout }: { onLogout: () => void
     try {
       const res = await axios.get(`${API_BASE}/jobs?page=1&limit=100`, {
         headers: { Authorization: `Bearer ${token}` },
-        withCredentials: true,
       });
 
-      const fetchedJobs: Job[] = res.data?.jobs || [];
+      const technicianJobs = (res.data?.jobs || []).filter(
+        (job: any) => job.assignedTechnician?.id === Number(userId)
+      );
 
-      const technicianJobs = fetchedJobs
-        .filter(job => job.assignedTechnician?.id === Number(userId))
-        .sort(
-          (a, b) =>
-            new Date(b.createdAt || "").getTime() -
-            new Date(a.createdAt || "").getTime()
-        );
+      technicianJobs.sort(
+        (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
 
       setJobs(technicianJobs);
     } catch (err: any) {
@@ -110,25 +73,21 @@ export default function TechnicianDashboard({ onLogout }: { onLogout: () => void
     } finally {
       setLoadingJobs(false);
     }
-  }, [token, userId, toast]);
+  };
 
   const startSession = async () => {
     if (!token || !userId) return;
     setLoadingSession(true);
     try {
-      const res = await axios.post(
+      await axios.post(
         `${API_BASE}/sessions/login`,
         { userId: Number(userId) },
-        { headers: { Authorization: `Bearer ${token}` }, withCredentials: true }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-      if (res.status === 200) setSessionActive(true);
+      setSessionActive(true);
     } catch (err: any) {
-      console.error("Session start error:", err);
-      toast({
-        title: "Session Error",
-        description: err?.message || "Failed to start session",
-        variant: "destructive",
-      });
+      console.error("Session login error:", err);
+      toast({ title: "Session Error", description: err.message, variant: "destructive" });
     } finally {
       setLoadingSession(false);
     }
@@ -138,19 +97,15 @@ export default function TechnicianDashboard({ onLogout }: { onLogout: () => void
     if (!token || !userId) return;
     setLoadingSession(true);
     try {
-      const res = await axios.post(
+      await axios.post(
         `${API_BASE}/sessions/logout`,
         { userId: Number(userId) },
-        { headers: { Authorization: `Bearer ${token}` }, withCredentials: true }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-      if (res.status === 200) setSessionActive(false);
+      setSessionActive(false);
     } catch (err: any) {
-      console.error("Session end error:", err);
-      toast({
-        title: "Session Error",
-        description: err?.message || "Failed to end session",
-        variant: "destructive",
-      });
+      console.error("Session logout error:", err);
+      toast({ title: "Session Error", description: err.message, variant: "destructive" });
     } finally {
       setLoadingSession(false);
     }
@@ -159,20 +114,19 @@ export default function TechnicianDashboard({ onLogout }: { onLogout: () => void
   useEffect(() => {
     fetchJobs();
     startSession();
-  }, [fetchJobs]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const todayDate = new Date().toISOString().split("T")[0];
-  const todayJobs = jobs.filter(job => job.scheduledDate?.startsWith(todayDate));
-  const pendingJobs = jobs.filter(job => job.status?.toLowerCase() === "pending");
-  const inProgressJobs = jobs.filter(job => job.status?.toLowerCase() === "in-progress");
+  const todayJobs = jobs.filter((job) => job.scheduledDate?.startsWith(todayDate));
+  const pendingJobs = jobs.filter((job) => job.status?.toLowerCase() === "pending");
+  const inProgressJobs = jobs.filter((job) => job.status?.toLowerCase() === "in-progress");
   const completedJobs = jobs.filter(
-    job =>
-      job.status?.toLowerCase() === "done" ||
-      job.status?.toLowerCase() === "completed"
+    (job) => ["done", "completed"].includes(job.status?.toLowerCase())
   );
 
-  const renderJobCard = (job: Job) => {
-    const StatusIcon = statusIcons[job.status?.toLowerCase() || "pending"] || Clock;
+  const renderJobCard = (job: any) => {
+    const StatusIcon = statusIcons[job.status?.toLowerCase()] || Clock;
 
     return (
       <Card
@@ -221,7 +175,7 @@ export default function TechnicianDashboard({ onLogout }: { onLogout: () => void
               variant="secondary"
               size="sm"
               className="w-full"
-              onClick={e => {
+              onClick={(e) => {
                 e.stopPropagation();
                 setSelectedJob(job);
               }}
@@ -243,8 +197,8 @@ export default function TechnicianDashboard({ onLogout }: { onLogout: () => void
   return (
     <div className="min-h-screen bg-background">
       <ProfileHeader userRole="technician" onLogout={onLogout} />
-
       <div className="p-6 space-y-6">
+        {/* Header + Session Buttons */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold gradient-primary bg-clip-text text-transparent">
@@ -255,11 +209,7 @@ export default function TechnicianDashboard({ onLogout }: { onLogout: () => void
             </p>
           </div>
           <div className="flex gap-2">
-            <Button
-              onClick={startSession}
-              disabled={sessionActive || loadingSession}
-              variant="default"
-            >
+            <Button onClick={startSession} disabled={sessionActive || loadingSession}>
               Start Session
             </Button>
             <Button
@@ -274,6 +224,7 @@ export default function TechnicianDashboard({ onLogout }: { onLogout: () => void
 
         {error && <p className="text-destructive text-center">{error}</p>}
 
+        {/* Job Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Card className="shadow-card border-l-4 border-l-warning bg-warning/5">
             <CardContent className="p-4 flex justify-between items-center">
@@ -304,6 +255,7 @@ export default function TechnicianDashboard({ onLogout }: { onLogout: () => void
           </Card>
         </div>
 
+        {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="today">Today's Jobs</TabsTrigger>
