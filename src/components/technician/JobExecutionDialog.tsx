@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   MapPin,
   Camera,
@@ -52,6 +52,13 @@ const notDoneReasons = [
   { value: "LOCATION_INCORRECT", label: "Location Incorrect" },
   { value: "OTHER", label: "Other" },
 ];
+const statusMap: Record<string, string> = {
+  "pending": "PENDING",
+  "in-progress": "IN_PROGRESS",
+  "completed": "DONE",
+  "escalated": "IN_PROGRESS", // or define ESCALATED in Prisma if needed
+  "not-done": "PENDING", // or handle separately
+};
 
 export function JobExecutionDialog({
   job,
@@ -62,7 +69,7 @@ export function JobExecutionDialog({
   const [formData, setFormData] = useState({
     governorSerial: "",
     governorStatus: "",
-    gpsLocation: "Auto-captured: -1.2921, 36.8219",
+    gpsLocation: "Fetching location...",
     clientName: job.client,
     clientPhone: job.clientPhone,
     remarks: "",
@@ -72,6 +79,38 @@ export function JobExecutionDialog({
   });
 
   const [startTime] = useState(new Date().toLocaleString());
+  const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+
+  // Capture technician location on dialog open
+  useEffect(() => {
+    if (!open) return;
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setLocation({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          });
+          setFormData((prev) => ({
+            ...prev,
+            gpsLocation: `Auto-captured: ${pos.coords.latitude}, ${pos.coords.longitude}`,
+          }));
+        },
+        (err) => {
+          console.warn("Failed to get location:", err);
+          setLocation(null);
+          setFormData((prev) => ({
+            ...prev,
+            gpsLocation: "Location not available",
+          }));
+        },
+        { enableHighAccuracy: true }
+      );
+    } else {
+      setFormData((prev) => ({ ...prev, gpsLocation: "Geolocation not supported" }));
+    }
+  }, [open]);
 
   const handleStatusChange = (newStatus: string) => {
     setJobStatus(newStatus);
@@ -100,44 +139,43 @@ export function JobExecutionDialog({
     }
   };
 
-  // --- UPDATED handleSubmit ---
   const handleSubmit = async () => {
     try {
-      // Map frontend statuses to backend enum
-      const statusMap: Record<string, string> = {
-        "pending": "PENDING",
-        "in-progress": "IN_PROGRESS",
-        "completed": "DONE",
-        "escalated": "ESCALATED",
-        "not-done": "NOT_DONE",
+      // Map frontend status to Prisma enum
+      const prismaStatus = statusMap[jobStatus.toLowerCase()];
+
+      const payload: any = {
+        userId: job.technicianId || 2,
+        status: prismaStatus,
+        governorSerial: formData.governorSerial,
+        governorStatus: formData.governorStatus,
+        clientName: formData.clientName,
+        clientPhone: formData.clientPhone,
+        remarks: formData.remarks,
+        latitude: location?.latitude ?? null,
+        longitude: location?.longitude ?? null,
       };
+
+      // Conditionally add optional fields
+      if (jobStatus === "not-done") payload.notDoneReason = formData.notDoneReason;
+      if (jobStatus === "escalated") payload.escalationReason = formData.escalationReason;
 
       await axios.put(
         `https://technician-production-0728.up.railway.app/api/jobs/update/${job.id}`,
-        {
-          userId: job.technicianId || "2",
-          status: statusMap[jobStatus] || "IN_PROGRESS",
-          governorSerial: formData.governorSerial,
-          governorStatus: formData.governorStatus,
-          clientName: formData.clientName,
-          clientPhone: formData.clientPhone,
-          remarks: formData.remarks,
-          latitude: -1.2921,
-          longitude: 36.8219,
-          notDoneReason: formData.notDoneReason,
-          escalationReason: formData.escalationReason,
-        },
+        payload,
         { headers: { "Content-Type": "application/json" } }
       );
 
       alert("Job updated successfully!");
       onOpenChange(false);
-    } catch (error) {
-      console.error("Job update failed:", error);
-      alert("Job update failed. Please try again.");
+    } catch (error: any) {
+      console.error("Job update failed:", error.response?.data || error);
+      alert(
+        "Job update failed. Please try again. " +
+          (error.response?.data?.message || "")
+      );
     }
   };
-  // ---------------------------
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -207,7 +245,7 @@ export function JobExecutionDialog({
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <MapPin className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-muted-foreground">{job.location}</span>
+                    <span className="text-muted-foreground">{formData.gpsLocation}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <Clock className="h-4 w-4 text-muted-foreground" />
