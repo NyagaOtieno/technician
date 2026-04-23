@@ -1,55 +1,21 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import api from "@/lib/api";
+import { loginTechnician, logoutTechnician, getOnlineUsers } from "@/lib/api";
 
 const Sessions = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(
-    null
-  );
+  const [userId, setUserId] = useState<number | null>(null);
 
-  // Get GPS location once when component mounts
-  useEffect(() => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocation({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-        });
-      },
-      (err) => {
-        console.error("Location error:", err);
-        alert("⚠️ Location is required for technicians. Please allow access.");
-      }
-    );
-  }, []);
-
-  // Fetch online techs
+  // Fetch online technicians
   const { data: onlineTechs, refetch } = useQuery({
     queryKey: ["sessions", "online"],
-    queryFn: async () => {
-      const res = await api.get("/sessions/online");
-      return res.data;
-    },
+    queryFn: getOnlineUsers,
   });
 
-  // Login
+  // Login mutation
   const loginMutation = useMutation({
     mutationFn: async () => {
-      if (!email || !password) {
-        throw new Error("Email and password are required");
-      }
-      if (!location) {
-        throw new Error("GPS location is required");
-      }
-
-      const res = await api.post("/sessions/login", {
-        email,
-        password,
-        location, // send {lat, lng}
-      });
-      return res.data;
+      if (!userId) throw new Error("User ID is required");
+      return await loginTechnician(userId);
     },
     onSuccess: () => {
       refetch();
@@ -60,11 +26,11 @@ const Sessions = () => {
     },
   });
 
-  // Logout
+  // Logout mutation
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      const res = await api.post("/sessions/logout", { email });
-      return res.data;
+      if (!userId) throw new Error("User ID is required");
+      return await logoutTechnician(userId);
     },
     onSuccess: () => refetch(),
   });
@@ -75,17 +41,10 @@ const Sessions = () => {
 
       <div className="mb-4 flex flex-col gap-2">
         <input
-          type="email"
-          placeholder="Technician Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="border px-3 py-2 rounded"
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          type="number"
+          placeholder="Technician User ID"
+          value={userId || ""}
+          onChange={(e) => setUserId(Number(e.target.value))}
           className="border px-3 py-2 rounded"
         />
       </div>
@@ -104,7 +63,7 @@ const Sessions = () => {
           disabled={logoutMutation.isPending}
           className="bg-red-500 text-white px-4 py-2 rounded"
         >
-          Logout
+          {logoutMutation.isPending ? "Logging out..." : "Logout"}
         </button>
       </div>
 

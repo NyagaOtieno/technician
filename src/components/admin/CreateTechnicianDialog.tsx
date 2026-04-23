@@ -53,10 +53,24 @@ const roles = [
 ];
 
 const normalizePhone = (raw: string): string | null => {
-  const phone = raw.trim();
-  if (/^07\d{8}$/.test(phone)) return "+254" + phone.slice(1);
-  if (/^\+2547\d{8}$/.test(phone)) return phone;
-  return null;
+  if (!raw) return null;
+
+  // Remove whitespace and extra +
+  let phone = raw.trim().replace(/^\++/, '');
+
+  // 0XXXXXXXXX → +254XXXXXXXXX
+  if (/^0[17]\d{8}$/.test(phone)) return "+254" + phone.slice(1);
+
+  // 1XXXXXXXX → +2541XXXXXXXX
+  if (/^1\d{8}$/.test(phone)) return "+254" + phone;
+
+  // +254XXXXXXXXX → keep
+  if (/^\+254[17]\d{8}$/.test(phone)) return phone;
+
+  // 254XXXXXXXXX → add +
+  if (/^254[17]\d{8}$/.test(phone)) return "+" + phone;
+
+  return null; // invalid number
 };
 
 export function CreateTechnicianDialog({
