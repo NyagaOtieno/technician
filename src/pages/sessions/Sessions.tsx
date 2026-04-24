@@ -6,29 +6,22 @@ import {
   getOnlineUsers,
 } from "@/lib/api";
 
-// ✅ FIX: Define type properly inside file
-type User = {
-  id: number;
-  name: string;
-  email?: string;
-};
-
 const Sessions = () => {
-  const [userId, setUserId] = useState<string>("");
+  const [userId, setUserId] = useState("");
 
-  // ✅ Fetch online technicians
+  // Fetch online technicians
   const {
-    data: onlineTechs = [],
+    data: onlineTechs,
     refetch,
     isLoading,
     isError,
     error,
-  } = useQuery<User[]>({
+  } = useQuery({
     queryKey: ["sessions", "online"],
     queryFn: getOnlineUsers,
   });
 
-  // ✅ Login mutation
+  // Login mutation
   const loginMutation = useMutation({
     mutationFn: async () => {
       if (!userId) throw new Error("User ID is required");
@@ -37,13 +30,13 @@ const Sessions = () => {
     onSuccess: () => {
       refetch();
     },
-    onError: (err: any) => {
+    onError: (err) => {
       console.error("Login error:", err);
-      alert(err.message || "Login failed");
+      alert(err?.message || "Login failed");
     },
   });
 
-  // ✅ Logout mutation
+  // Logout mutation
   const logoutMutation = useMutation({
     mutationFn: async () => {
       if (!userId) throw new Error("User ID is required");
@@ -52,9 +45,9 @@ const Sessions = () => {
     onSuccess: () => {
       refetch();
     },
-    onError: (err: any) => {
+    onError: (err) => {
       console.error("Logout error:", err);
-      alert(err.message || "Logout failed");
+      alert(err?.message || "Logout failed");
     },
   });
 
@@ -73,7 +66,7 @@ const Sessions = () => {
         />
       </div>
 
-      {/* ACTION BUTTONS */}
+      {/* BUTTONS */}
       <div className="flex gap-3 mb-6">
         <button
           onClick={() => loginMutation.mutate()}
@@ -99,11 +92,11 @@ const Sessions = () => {
         <p>Loading...</p>
       ) : isError ? (
         <p className="text-red-500">
-          {(error as Error)?.message || "Failed to load"}
+          {error?.message || "Failed to load"}
         </p>
       ) : (
         <ul className="list-disc pl-6">
-          {onlineTechs.map((tech) => (
+          {(onlineTechs || []).map((tech) => (
             <li key={tech.id}>
               {tech.name} {tech.email ? `(${tech.email})` : ""}
             </li>
