@@ -1,11 +1,16 @@
 import axios from "axios";
 
 // =========================
-// BASE CONFIG
+// BASE CONFIG (PRODUCTION SAFE)
 // =========================
+
+// IMPORTANT:
+// Use /api when deployed with Vercel rewrite proxy
+// Fallback to Railway directly for local dev or if proxy is not used
+
 const API_BASE =
   import.meta.env.VITE_API_BASE ||
-  "https://technician-production-0728.up.railway.app/api";
+  "/api"; // ✅ IMPORTANT FIX (works with Vercel rewrites)
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -17,7 +22,6 @@ const api = axios.create({
 
 // =========================
 // REQUEST INTERCEPTOR
-// (attach token automatically)
 // =========================
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
@@ -31,7 +35,6 @@ api.interceptors.request.use((config) => {
 
 // =========================
 // RESPONSE INTERCEPTOR
-// (better debugging on Vercel)
 // =========================
 api.interceptors.response.use(
   (response) => response,
@@ -48,7 +51,7 @@ api.interceptors.response.use(
 );
 
 // =========================
-// AUTH / SESSIONS
+// SESSIONS API
 // =========================
 export const loginTechnician = async (userId: number) => {
   const res = await api.post("/sessions/login", { userId });
@@ -66,15 +69,10 @@ export const getOnlineUsers = async () => {
 };
 
 // =========================
-// JOBS (optional but useful)
+// JOBS API
 // =========================
 export const getJobs = async () => {
   const res = await api.get("/jobs");
-  return res.data;
-};
-
-export const updateJob = async (id: number, data: any) => {
-  const res = await api.put(`/jobs/update/${id}`, data);
   return res.data;
 };
 
@@ -83,7 +81,12 @@ export const createJob = async (data: any) => {
   return res.data;
 };
 
+export const updateJob = async (id: number, data: any) => {
+  const res = await api.put(`/jobs/update/${id}`, data);
+  return res.data;
+};
+
 // =========================
-// EXPORT DEFAULT (still usable)
+// DEFAULT EXPORT
 // =========================
 export default api;
