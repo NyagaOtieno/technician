@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { loginTechnician, logoutTechnician, getOnlineUsers } from "@/lib/api";
+import {
+  loginTechnician,
+  logoutTechnician,
+  getOnlineUsers,
+} from "@/lib/api";
 
+// ✅ FIX: Define type properly inside file
 type User = {
   id: number;
   name: string;
@@ -11,17 +16,19 @@ type User = {
 const Sessions = () => {
   const [userId, setUserId] = useState<string>("");
 
-  // Fetch online technicians
+  // ✅ Fetch online technicians
   const {
-    data: onlineTechs,
+    data: onlineTechs = [],
     refetch,
     isLoading,
-  } = useQuery({
+    isError,
+    error,
+  } = useQuery<User[]>({
     queryKey: ["sessions", "online"],
     queryFn: getOnlineUsers,
   });
 
-  // Login mutation
+  // ✅ Login mutation
   const loginMutation = useMutation({
     mutationFn: async () => {
       if (!userId) throw new Error("User ID is required");
@@ -32,10 +39,11 @@ const Sessions = () => {
     },
     onError: (err: any) => {
       console.error("Login error:", err);
+      alert(err.message || "Login failed");
     },
   });
 
-  // Logout mutation
+  // ✅ Logout mutation
   const logoutMutation = useMutation({
     mutationFn: async () => {
       if (!userId) throw new Error("User ID is required");
@@ -46,6 +54,7 @@ const Sessions = () => {
     },
     onError: (err: any) => {
       console.error("Logout error:", err);
+      alert(err.message || "Logout failed");
     },
   });
 
@@ -53,6 +62,7 @@ const Sessions = () => {
     <div className="p-4">
       <h1 className="text-xl font-bold mb-4">Technician Sessions</h1>
 
+      {/* INPUT */}
       <div className="mb-4 flex flex-col gap-2">
         <input
           type="number"
@@ -63,6 +73,7 @@ const Sessions = () => {
         />
       </div>
 
+      {/* ACTION BUTTONS */}
       <div className="flex gap-3 mb-6">
         <button
           onClick={() => loginMutation.mutate()}
@@ -81,13 +92,18 @@ const Sessions = () => {
         </button>
       </div>
 
+      {/* LIST */}
       <h2 className="font-medium mb-2">Online Technicians:</h2>
 
       {isLoading ? (
         <p>Loading...</p>
+      ) : isError ? (
+        <p className="text-red-500">
+          {(error as Error)?.message || "Failed to load"}
+        </p>
       ) : (
         <ul className="list-disc pl-6">
-          {(onlineTechs as User[])?.map((tech) => (
+          {onlineTechs.map((tech) => (
             <li key={tech.id}>
               {tech.name} {tech.email ? `(${tech.email})` : ""}
             </li>
